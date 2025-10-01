@@ -1,0 +1,1 @@
+{async block@MembersIter<&&serenity::prelude::Context>::stream<&&serenity::prelude::Context>::{closure#0}::{closure#0}}

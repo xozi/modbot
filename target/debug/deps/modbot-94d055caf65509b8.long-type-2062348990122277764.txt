@@ -1,0 +1,1 @@
+std::pin::Pin<&mut impl serenity::futures::Stream<Item = Result<serenity::all::Member, SerenityError>>>

@@ -1,0 +1,9 @@
+/Volumes/Backup 1TB/Dev/rustproj/modbot/target/debug/deps/system_configuration-af415cd7d721c08c.d: /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/lib.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/dynamic_store.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/network_configuration.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/network_reachability.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/preferences.rs
+
+/Volumes/Backup 1TB/Dev/rustproj/modbot/target/debug/deps/libsystem_configuration-af415cd7d721c08c.rmeta: /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/lib.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/dynamic_store.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/network_configuration.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/network_reachability.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/preferences.rs
+
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/lib.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/dynamic_store.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/network_configuration.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/network_reachability.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/system-configuration-0.5.1/src/preferences.rs:

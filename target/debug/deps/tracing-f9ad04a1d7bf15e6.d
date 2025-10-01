@@ -1,0 +1,13 @@
+/Volumes/Backup 1TB/Dev/rustproj/modbot/target/debug/deps/tracing-f9ad04a1d7bf15e6.d: /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/lib.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/macros.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/dispatcher.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/field.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/instrument.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/level_filters.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/span.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/stdlib.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/subscriber.rs
+
+/Volumes/Backup 1TB/Dev/rustproj/modbot/target/debug/deps/libtracing-f9ad04a1d7bf15e6.rmeta: /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/lib.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/macros.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/dispatcher.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/field.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/instrument.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/level_filters.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/span.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/stdlib.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/subscriber.rs
+
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/lib.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/macros.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/dispatcher.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/field.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/instrument.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/level_filters.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/span.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/stdlib.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/subscriber.rs:

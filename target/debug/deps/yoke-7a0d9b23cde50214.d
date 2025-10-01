@@ -1,0 +1,13 @@
+/Volumes/Backup 1TB/Dev/rustproj/modbot/target/debug/deps/yoke-7a0d9b23cde50214.d: /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/lib.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/cartable_ptr.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/either.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/erased.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/kinda_sorta_dangling.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/macro_impls.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/yoke.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/yokeable.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/zero_from.rs
+
+/Volumes/Backup 1TB/Dev/rustproj/modbot/target/debug/deps/libyoke-7a0d9b23cde50214.rmeta: /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/lib.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/cartable_ptr.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/either.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/erased.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/kinda_sorta_dangling.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/macro_impls.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/yoke.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/yokeable.rs /Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/zero_from.rs
+
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/lib.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/cartable_ptr.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/either.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/erased.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/kinda_sorta_dangling.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/macro_impls.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/yoke.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/yokeable.rs:
+/Users/eora/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/yoke-0.8.0/src/zero_from.rs:
