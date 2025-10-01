@@ -1,5 +1,0 @@
-futures_util::unfold_state::_::__Origin<'_, MembersIter<&&serenity::prelude::Context>, {async block@MembersIter<&&serenity::prelude::Context>::stream<&&serenity::prelude::Context>::{closure#0}::{closure#0}}>
-{async block@MembersIter<&&serenity::prelude::Context>::stream<&&serenity::prelude::Context>::{closure#0}::{closure#0}}
-futures_util::unfold_state::UnfoldState<MembersIter<&&serenity::prelude::Context>, {async block@MembersIter<&&serenity::prelude::Context>::stream<&&serenity::prelude::Context>::{closure#0}::{closure#0}}>
-serenity::futures::stream::unfold::_::__Origin<'_, MembersIter<&&serenity::prelude::Context>, {closure@MembersIter<&&serenity::prelude::Context>::stream<&&serenity::prelude::Context>::{closure#0}}, {async block@MembersIter<&&serenity::prelude::Context>::stream<&&serenity::prelude::Context>::{closure#0}::{closure#0}}>
-serenity::futures::stream::Unfold<MembersIter<&&serenity::prelude::Context>, {closure@MembersIter<&&serenity::prelude::Context>::stream<&&serenity::prelude::Context>::{closure#0}}, {async block@MembersIter<&&serenity::prelude::Context>::stream<&&serenity::prelude::Context>::{closure#0}::{closure#0}}>
