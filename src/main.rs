@@ -24,7 +24,7 @@ impl EventHandler for Handler {
         println!("{} is connected!", ready.user.name);
         for guildref in ready.guilds {
             let guild = guildref.id; 
-                 if let Ok(member) = guild.current_user_member(&ctx).await {
+                if let Ok(member) = guild.current_user_member(&ctx).await {
                 if member.permissions(&ctx.cache).map_or(false, |p| p.administrator()) {
                     println!("Registering commands for guild: {}", guild);
                     let commands = vec![
