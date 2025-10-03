@@ -42,8 +42,7 @@ impl ModbotCmd {
             ModbotCmd::FetchProfile => 
                 CreateCommand::new("fetchprofile")
                     .description("Fetch a user's profile")
-                    .add_option(
-                        CreateCommandOption::new(
+                    .add_option(CreateCommandOption::new(
                             CommandOptionType::User,
                             "user",
                             "The user to fetch the profile for") 
@@ -51,113 +50,134 @@ impl ModbotCmd {
                             .set_autocomplete(true)
                         ),
             ModbotCmd::Punishment =>
-                CreateCommand::new("punishment")
-                    .description("Apply/remove punishment to user")
-                    .add_option(
-                        CreateCommandOption::new(
+                CreateCommand::new("punish")
+                    .description("Add/remove/edit punishment to a user")
+                    .add_option(CreateCommandOption::new(
                             CommandOptionType::User,
                             "user",
                             "Username or ID") 
-                            .required(true)
                             .set_autocomplete(true)
-                        )
-                    .add_option(
-                        CreateCommandOption::new(
+                            .required(true))
+                    .add_option(CreateCommandOption::new(
                             CommandOptionType::SubCommandGroup,
-                            "punishment",
-                            "Type of punishment"
-                        ) 
-                        .required(true)
-                        .set_sub_options(
-                            vec![CreateCommandOption::new(
-                                CommandOptionType::SubCommand,
-                                "ban",
-                                "Ban a user"),
+                            "add",
+                            "Add a punishment to a user") 
+                        .required(false)
+                        .add_sub_option(
                             CreateCommandOption::new(
-                                CommandOptionType::SubCommand,
-                                "mute", 
-                                "Mute a user"),
-                            CreateCommandOption::new(
-                                CommandOptionType::SubCommand,
-                                "warn", 
-                                "Warn a user"),
-                            CreateCommandOption::new(
-                                CommandOptionType::SubCommand,
-                                "timeout", 
-                                "Timeout a user")]
-                        )
-                    )
-                    .add_option(
-                        CreateCommandOption::new(
-                            CommandOptionType::Integer,
-                            "duration",
-                            "Duration of punishment in specified units"
-                        )
-                        .min_int_value(1)
-                        .max_int_value(999)
-                        .required(false) 
-                    )
-                    .add_option(
-                        CreateCommandOption::new(
                             CommandOptionType::String,
-                            "units",
-                            "Units for duration") 
-                            .required(false)
-                            .set_sub_options(
-                                vec![CreateCommandOption::new(
-                                    CommandOptionType::SubCommand,
-                                    "minutes",
-                                    "Minutes"),
-                                CreateCommandOption::new(
-                                    CommandOptionType::SubCommand,
-                                    "hours", 
-                                    "Hours"),
-                                CreateCommandOption::new(
-                                    CommandOptionType::SubCommand,
-                                    "days", 
-                                    "Days"),
-                                ])
-                        )
-                    .add_option(
-                        CreateCommandOption::new(
+                            "type",
+                            "Type of punishment"))   
+                            .add_string_choice("timeout", "T")
+                            .add_string_choice("warn", "W")
+                            .add_string_choice("mute", "M")
+                            .add_string_choice("ban", "B")
+                            .required(true)
+                        .add_sub_option(CreateCommandOption::new(
+                            CommandOptionType::SubCommand,
+                            "time",
+                            "Type of punishment"))
+                            .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::Integer,
+                                "duration",
+                                "Duration of punishment")
+                                .min_int_value(1)
+                                .max_int_value(999)
+                                .required(true))
+                            .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::String,
+                                "units",
+                                "Units for duration") 
+                                .required(true)
+                                .add_string_choice("minute(s)", "M")
+                                .add_string_choice("hour(s)", "H")
+                                .add_string_choice("day(s)", "D")
+                            .required(true))
+                        .add_sub_option(CreateCommandOption::new(
                             CommandOptionType::String,
                             "reason",
                             "Reason for punishment"
                             ) 
-                            .required(false)
                             .max_length(1000)
-                        )
-                    .add_option(
-                        CreateCommandOption::new(
-                            CommandOptionType::SubCommandGroup,
-                            "remove",
-                            "Remove a specified the punishment"
-                            ) 
+                            .required(true))
+                    )
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::SubCommandGroup,
+                        "remove",
+                        "Remove a specified punishment"
+                        ) 
+                        .required(false)
+                        .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::SubCommand,
+                                "id",
+                                "Remove punishment by ID"
+                            )
+                            .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::Boolean,
+                                "latest",
+                                "Remove latest punishment for this user")
+                            )
+                            .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::Integer,
+                                "number",
+                                "The ID of the punishment to remove"
+                                )   
+                                .min_int_value(1))
+                            )
+                            .required(true)
+                    )
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::SubCommandGroup,
+                        "edit",
+                        "Adjust a specified punishment"
+                        ) 
+                        .required(false)
+                        .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::SubCommand,
+                                "id",
+                                "Remove punishment by ID"
+                            )
+                            .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::Boolean,
+                                "latest",
+                                "Remove latest punishment for this user")
+                            )
+                            .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::Integer,
+                                "number",
+                                "The ID of the punishment to remove"
+                                )   
+                                .min_int_value(1))
+                            )
+                            .required(true)
+                        .add_sub_option(CreateCommandOption::new(
+                            CommandOptionType::String,
+                            "reason",
+                            "Update the reason for a punishment")
+                            .max_length(1000)
                             .required(false)
-                            .add_sub_option(
-                                    CreateCommandOption::new(
-                                        CommandOptionType::SubCommand,
-                                        "id",
-                                        "Remove punishment by ID"
-                                    )
-                                    .add_sub_option(
-                                        CreateCommandOption::new(
-                                            CommandOptionType::Integer,
-                                            "punishment_id",
-                                            "The ID of the punishment to remove"
-                                        )
-                                        .required(true)
-                                        .min_int_value(1)
-                                    )
-                                )
-                                .add_sub_option(
-                                    CreateCommandOption::new(
-                                        CommandOptionType::SubCommand,
-                                        "latest",
-                                        "Remove latest punishment for this user"
-                                    )
-                                )
                         )
+                        .add_sub_option(CreateCommandOption::new(
+                            CommandOptionType::SubCommand,
+                            "time",
+                            "Update the length of punishment"))
+                            .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::Integer,
+                                "duration",
+                                "Duration of punishment")
+                                .min_int_value(1)
+                                .max_int_value(999)
+                                .required(true))
+                            .add_sub_option(CreateCommandOption::new(
+                                CommandOptionType::String,
+                                "units",
+                                "Units for duration") 
+                                .required(true)
+                                .add_string_choice("minutes", "M")
+                                .add_string_choice("hours", "H")
+                                .add_string_choice("days", "D")
+                            .required(false))
+                    )
                     //Complete will be handled in run_command
         }
     }
