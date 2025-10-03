@@ -13,36 +13,39 @@ Immediately replies should be given to all command entry events. Most events wil
 The command handler is a structure that is generated new with the receiver address from the mspc and the GuildID. On generation it should establish and store a Connection to the the postgres database. The handler should also generate a log channel if there isn't one and synchronize profiles in that log channel. In case of failures a recheck should be done on new for temporary punishments.
 
 The slash commands for punishments will follow a form that allows for near single command control of the bot. The form of the command is as follows:
-> /punish 
->> user (String)
->> add (SubCommandGroup)
->>> type (String Choice)
->>>> "warn"
->>>> "timeout"
->>>> "mute"
->>>> "ban"
->>> time (Subcommand)
->>>> duration (Integer)
->>>> unit (String Choice)
->>>>> "minute(s)"
->>>>> "hour(s)"
->>>>> "day(s)"
->>>> reason (String)
->> remove (SubCommandGroup)
->>> id (Subcommand)
->>>> latest (Boolean)
->>>> number (Integer)
->> edit (SubCommandGroup)
->>> id (Subcommand)
->>>> latest (Boolean)
->>>> number (Integer)
->>> time (Subcommand)
->>>> duration (Integer)
->>>> unit (String Choice)
->>>>> "minute(s)"
->>>>> "hour(s)"
->>>>> "day(s)"
->>>> reason (String)
+
+<pre>
+├──  /punish
+	├── user (String)
+	├── add (SubCommandGroup)
+		├── type (String Choice)
+			├──"warn"
+			├── "timeout"
+			├── "mute"
+			├── "ban"
+		├── time (Subcommand)
+			├── duration (Integer)
+			├── unit (String Choice)
+				├── "minute(s)"
+				├── "hour(s)"
+				├── "day(s)"
+		├── reason (String)
+	├── remove (SubCommandGroup)
+		├── id (Subcommand)
+			├── latest (Boolean)
+			├── number (Integer)
+	├── edit (SubCommandGroup)
+		├── id (Subcommand)
+			├── latest (Boolean)
+			├── number (Integer)
+		├── time (Subcommand)
+			├── duration (Integer)
+			├── unit (String Choice)
+				├── "minute(s)"
+				├── "hour(s)"
+				├── "day(s)"
+		├── reason (String)
+</pre>
 
 ### Profile 
 Profiles are embed messages with details about the user:
