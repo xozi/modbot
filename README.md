@@ -58,6 +58,9 @@ For temporary punishments, workers are to be generated and given a clone of mpsc
 
 Note: Flags should be triggered indicating an active punishment or removed afterwards.
 
+
+**Note**: Ideas for the DB structure are not yet completely figured out, personally I'm not very apt with SQL or Postgres so this will be under major remake once the rest of the bot is created.
+
 ### SQL DB Structure (Table Profile)
 
 * UID
