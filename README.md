@@ -2,7 +2,7 @@
 
 The main point of the modbot system is to moderate users, but it also has the necessary capacity of logging information of any kind regarding the user.
 
-### Structure:
+### Structure
 
 The main component (main.rs in the Server folder) is intialization. Serenity utilizes a client system which builds with a EventHandler struct, the ClientHandler in modbot implements it and recieves events from Discord via this way.
 
