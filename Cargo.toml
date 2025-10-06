@@ -3,6 +3,11 @@ name = "modbot"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "modbot"
+path = "server/main.rs"
+
+
 [dependencies]
 arrayvec = "0.7.6"
 serenity = "0.12.4"

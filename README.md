@@ -15,36 +15,49 @@ The command handler is a structure that is generated new with the receiver addre
 The slash commands for punishments will follow a form that allows for near single command control of the bot. The form of the command is as follows:
 
 <pre>
-├──  /punish
-	├── user (String)
-	├── add (SubCommandGroup)
-		├── type (String Choice)
-			├──"warn"
-			├── "timeout"
-			├── "mute"
-			├── "ban"
-		├── time (Subcommand)
-			├── duration (Integer)
-			├── unit (String Choice)
-				├── "minute(s)"
-				├── "hour(s)"
-				├── "day(s)"
-		├── reason (String)
-	├── remove (SubCommandGroup)
-		├── id (Subcommand)
-			├── latest (Boolean)
-			├── number (Integer)
-	├── edit (SubCommandGroup)
-		├── id (Subcommand)
-			├── latest (Boolean)
-			├── number (Integer)
-		├── time (Subcommand)
-			├── duration (Integer)
-			├── unit (String Choice)
-				├── "minute(s)"
-				├── "hour(s)"
-				├── "day(s)"
-		├── reason (String)
+├── /punish
+    ├── add (SubCommandGroup)
+        ├── timeout (SubCommand)
+            ├── user (User | REQUIRED)
+            ├── duration (Integer | REQUIRED)
+            ├── units (String Choice | REQUIRED)
+                ├── "minute(s)"
+                ├── "hour(s)"
+                ├── "day(s)"
+            ├── reason (String)
+        ├── warn (SubCommand)
+            ├── user (User | REQUIRED)
+            ├── reason (String)
+        ├── mute (SubCommand)
+            ├── user (User | REQUIRED)
+            ├── duration (Integer)
+            ├── units (String Choice)
+                ├── "minute(s)"
+                ├── "hour(s)"
+                ├── "day(s)"
+            ├── reason (String)
+        ├── ban (SubCommand)
+            ├── user (User | REQUIRED)
+            ├── duration (Integer)
+            ├── units (String Choice)
+                ├── "minute(s)"
+                ├── "hour(s)"
+                ├── "day(s)"
+            ├── reason (String)
+    ├── remove (SubCommand)
+        ├── user (User | REQUIRED)
+        ├── id (Integer)
+        ├── latest (Boolean)
+    ├── edit (SubCommand)
+        ├── user (User | REQUIRED)
+        ├── id (Integer)
+        ├── latest (Boolean)
+        ├── reason (String)
+        ├── duration (Integer)
+        ├── units (String Choice)
+            ├── "minutes"
+            ├── "hours"
+            ├── "days"
 </pre>
 
 ### Profile 
