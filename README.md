@@ -61,7 +61,6 @@ The main component (main.rs in the Server folder) is intialization. Serenity uti
             ├── "days"
 </pre>
 
-Profiles
 ### Profile 
 Profiles are embed messages with details about the user. The /fetchprofile command will foward the most recent profile from the #modbot-log channel, which will hold all profiles on punished users. 
 
