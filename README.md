@@ -83,6 +83,8 @@ Note: Flags should be triggered indicating an active punishment or removed after
 > type: BIGINT (PRIMARY KEY)
 * Info
 > type: JSONB
+* Latest Punishiment (Unixtime)
+> type: BIGINT
 
 An index should be made regarding all users that are present in the server (i.e. not banned for quicker parsing in the database)
 
@@ -92,8 +94,15 @@ An index should be made regarding all users that are present in the server (i.e.
 > type: BIGINT (PRIMARY KEY)
 * Type
 > type: VARCHAR(10)
-* Duration (Unixtime Offset)
+* Duration (Unixtime + Offset)
 > type: BIGINT
+
+### Update Ideas
+
+* Index order based on the latest punishment time (DESC) for Profile, (ASC) for Temporary
+* When a command is sent a ghost ping is sent to the exact log page that is updated for the moderator.
+* Updates to profiles if done should be on a queue through the day, this will be addressed further in future.
+* The DB Handler will be established when the client is set, but it will not be ready untill the log is generated, consider a log channel intialization event that is sent to the DB Handler before and requests can be recieved, this will be giving the log channel to the DB Handler so Arc the value. 
 
 ### Depedencies
 
