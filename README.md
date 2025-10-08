@@ -85,7 +85,7 @@ Embedded databases are generated per guild, there should be 2 collections per da
 * "Profile" Collection for all profiles of punished users.
 * "RolePermission" Collection for roles that have permission controls for the commands. By default empty, will verify sender of command.
 
-Documents are BSON, which for ease we should consider purely storing the embed in a way to easily modify it with new information
+Documents are BSON.
 
 ### Update Ideas
 
@@ -94,11 +94,14 @@ Documents are BSON, which for ease we should consider purely storing the embed i
 * Updates to profiles if done should be on a queue through the day, this will be addressed further in future.
 * Admin only /reverse command that helps reverse past punishments for trial mods (security), also limit ban outside their range. Integrated rate limit for trial mods. (Only consider this if necessary)
 * Optimized checks for roles to avoid unecessary API pings (hopefully the cache does this)
+* Consideration should be had regarding Profile storage, store them in a way that's easily recreatable or the whole embed. It should be easily modifiable.
 
 ### Depedencies
 
 Discord API Handler: serenity
 > Docs: https://docs.rs/serenity/latest/serenity/
+
 > A very useful wiki: https://deepwiki.com/serenity-rs/serenity/1-overview
+
 Embedded Database: PoloDB
 > Github: https://github.com/PoloDB/PoloDB
