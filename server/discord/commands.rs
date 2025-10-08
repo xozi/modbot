@@ -222,13 +222,6 @@ impl ModbotCmd {
                         .required(true)
                         .set_autocomplete(true))
                     .add_option(CreateCommandOption::new(
-                        CommandOptionType::String,
-                        "command",
-                        "The command to set permissions for") 
-                        .required(true)
-                        .add_string_choice("punish", "punish")
-                        .add_string_choice("fetchprofile", "fetchprofile"))
-                    .add_option(CreateCommandOption::new(
                         CommandOptionType::Boolean,
                         "allow",
                         "Allow or disallow the command for this role") 

@@ -7,11 +7,10 @@ use serenity::{all::Role, model::{
 }};
 use std::collections::BTreeMap;
 
-use crate::discord::commands::ModbotCmd;
 pub struct DBHandler {
     database: BTreeMap<GuildId, Database>,
     guildlog: BTreeMap<GuildId, GuildChannel>,
-    roleperms: BTreeMap<GuildId, BTreeMap<RoleId, BTreeMap<String, bool>>>,
+    roleperms: BTreeMap<GuildId, BTreeMap<RoleId, bool>>,
     httprequest: Option<Arc<serenity::http::Http>>,
     receiver: Receiver<DBRequest>,
     intialized: bool,
@@ -156,5 +155,5 @@ struct Temporary {
 #[derive(Debug, Serialize, Deserialize)]
 struct RolePermission {
     role_id: RoleId,
-    permissions: BTreeMap<String, bool>,
+    permissed: bool,
 }
