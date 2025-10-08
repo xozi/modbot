@@ -10,6 +10,8 @@ path = "server/main.rs"
 
 [dependencies]
 arrayvec = "0.7.6"
+polodb_core = "5.1.4"
+serde = "1.0.228"
 serenity = "0.12.4"
 tokio = { version = "1.47.1", features = ["rt-multi-thread"] }
 

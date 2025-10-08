@@ -1,4 +1,4 @@
-use crate::{db::DB_Handler, discord::commandtypes::ModbotCmd};
+use crate::{db::*, discord::commands::ModbotCmd};
 
 use serenity::{
     async_trait, 
@@ -6,8 +6,7 @@ use serenity::{
     futures::{io::empty, *}, 
     model::{
         application::{Command, Interaction}, 
-        channel::*, 
-        gateway::Ready, 
+        channel::*,
         permissions::Permissions,
         guild, 
         id::{ChannelId, CommandId, GuildId, UserId}, 
@@ -15,14 +14,15 @@ use serenity::{
     }, 
     prelude::*
 };
+use tokio::sync::mpsc::Sender;
 pub struct ClientHandler {
-    db: DB_Handler
+    sender: Sender<DBRequest>,
 }
 
 impl ClientHandler {
-    pub fn new(dhandle: DB_Handler) -> Self {
+    pub fn new(sender: Sender<DBRequest>) -> Self {
         ClientHandler{
-            db : dhandle
+            sender,
         }
     }
 
@@ -68,13 +68,38 @@ impl ClientHandler {
 
 #[async_trait]
 impl EventHandler for ClientHandler {
-     async fn cache_ready(&self, ctx: Context, guilds: Vec<GuildId> ) {
+    async fn cache_ready(&self, ctx: Context, guilds: Vec<GuildId> ) {
+        if let Err(e) = &self.sender.send(
+            DBRequest {
+                request_type: DBRequestType::IntializeLog,
+                usercommand: None,
+                commandupdate: None,
+                init: Some(DBIntialization {
+                    http: Some(ctx.http.clone()),
+                    guildlog: None,
+                }),
+            }
+        ).await {
+            eprintln!("Error sending HTTP access to DB {}", e);
+        }
         for guild in guilds {
             match ClientHandler::permission_check(&ctx, guild).await {
                 Ok(true) => {
                     match ClientHandler::create_log(&ctx, guild).await {
-                        Ok(log_channel) => {
-
+                        Ok(log) => {
+                            if let Err(e) = &self.sender.send(
+                                DBRequest {
+                                    request_type: DBRequestType::IntializeLog,
+                                    usercommand: None,
+                                    commandupdate: None,
+                                    init: Some(DBIntialization {
+                                        http: None,
+                                        guildlog: Some((log, guild)),
+                                    }),
+                                }
+                            ).await {
+                                eprintln!("Error sending log access to DB {}", e);
+                            }
                         },
                         Err(e) => {
                             continue;
@@ -91,6 +116,16 @@ impl EventHandler for ClientHandler {
                 }
             }
         };
+        if let Err(e) = &self.sender.send(
+            DBRequest {
+                request_type: DBRequestType::Build,
+                usercommand: None,
+                commandupdate: None,
+                init: None,
+            }
+        ).await {
+            eprintln!("Error sending log access to DB {}", e);
+        }
     }
 }
 

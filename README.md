@@ -77,35 +77,28 @@ Note: Flags should be triggered indicating an active punishment or removed after
 
 **Note**: Ideas for the DB structure are not yet completely figured out, personally I'm not very apt with SQL or Postgres so this will be under major remake once the rest of the bot is created.
 
-### SQL DB Structure (Table Profile)
+### Database Structure
 
-* UID
-> type: BIGINT (PRIMARY KEY)
-* Info
-> type: JSONB
-* Latest Punishiment (Unixtime)
-> type: BIGINT
+Embedded databases are generated per guild, there should be 2 collections per database.
 
-An index should be made regarding all users that are present in the server (i.e. not banned for quicker parsing in the database)
+* "Temporary" Collection for all currently pending punishments.
+* "Profile" Collection for all profiles of punished users.
+* "RolePermission" Collection for roles that have permission controls for the commands. By default empty, will verify sender of command.
 
-### SQL DB Structure (Table Temporary)
-
-* UID
-> type: BIGINT (PRIMARY KEY)
-* Type
-> type: VARCHAR(10)
-* Duration (Unixtime + Offset)
-> type: BIGINT
+Documents are BSON, which for ease we should consider purely storing the embed in a way to easily modify it with new information
 
 ### Update Ideas
 
-* Index order based on the latest punishment time (DESC) for Profile, (ASC) for Temporary
-* When a command is sent a ghost ping is sent to the exact log page that is updated for the moderator.
+* Index order to be the unix time of their punishment in ASC order, with an ! bitewise inversion profile table (more recent punishments at the top). (PoloDB only does ASC for some reason)
+* When a /punish command is sent a ghost ping is sent to the exact log page that is updated for the moderator.
 * Updates to profiles if done should be on a queue through the day, this will be addressed further in future.
-* The DB Handler will be established when the client is set, but it will not be ready untill the log is generated, consider a log channel intialization event that is sent to the DB Handler before and requests can be recieved, this will be giving the log channel to the DB Handler so Arc the value. 
+* Admin only /reverse command that helps reverse past punishments for trial mods (security), also limit ban outside their range. Integrated rate limit for trial mods. (Only consider this if necessary)
+* Optimized checks for roles to avoid unecessary API pings (hopefully the cache does this)
 
 ### Depedencies
 
 Discord API Handler: serenity
 > Docs: https://docs.rs/serenity/latest/serenity/
 > A very useful wiki: https://deepwiki.com/serenity-rs/serenity/1-overview
+Embedded Database: PoloDB
+> Github: https://github.com/PoloDB/PoloDB

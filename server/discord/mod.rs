@@ -1,2 +1,2 @@
-pub mod commandtypes;
+pub mod commands;
 pub mod client;

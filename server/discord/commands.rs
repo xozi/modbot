@@ -1,5 +1,9 @@
+use std::collections::BTreeMap;
+
 use serenity::{
-    model::application::CommandOptionType,
+    model::{
+        application::CommandOptionType,
+    },
     builder::{CreateCommand, CreateCommandOption},
 };
 
@@ -18,6 +22,7 @@ pub fn unixtime (unit: &str, period: u64) -> Option<u64> {
 pub enum ModbotCmd {
     FetchProfile,
     Punishment,
+    PermissionSet,
 }
 
 impl ModbotCmd {
@@ -206,7 +211,29 @@ impl ModbotCmd {
                             .add_string_choice("minutes", "M")
                             .add_string_choice("hours", "H")
                             .add_string_choice("days", "D"))
-                    )
+                    ),
+            ModbotCmd::PermissionSet => 
+                CreateCommand::new("setpermission")
+                    .description("Set role permission for commands")
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::Role,
+                        "role",
+                        "The role to set permissions for") 
+                        .required(true)
+                        .set_autocomplete(true))
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::String,
+                        "command",
+                        "The command to set permissions for") 
+                        .required(true)
+                        .add_string_choice("punish", "punish")
+                        .add_string_choice("fetchprofile", "fetchprofile"))
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::Boolean,
+                        "allow",
+                        "Allow or disallow the command for this role") 
+                        .required(true)
+                )
                     //Complete will be handled in run_command
         }
     }
