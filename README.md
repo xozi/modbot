@@ -59,9 +59,9 @@ The main component (main.rs in the Server folder) is intialization. Serenity uti
             ├── "minutes"
             ├── "hours"
             ├── "days"
-    ├── /setpermission
-        ├── role (Role | REQUIRED)
-        ├── allow (Boolean | REQUIRED)
+├── /setpermission
+    ├── role (Role | REQUIRED)
+    ├── allow (Boolean | REQUIRED)
 </pre>
 
 ### Profile 

@@ -155,5 +155,5 @@ struct Temporary {
 #[derive(Debug, Serialize, Deserialize)]
 struct RolePermission {
     role_id: RoleId,
-    permissed: bool,
+    allow: bool,
 }
