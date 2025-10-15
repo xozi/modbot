@@ -53,13 +53,7 @@ impl ClientHandler {
         let bot_id = ctx.cache.current_user().id;
         let member = guild.member(&ctx.http, bot_id).await?;
         if member.permissions(&ctx.cache).map_or(false, |p| p.administrator()) {
-                println!("Registering commands for guild: {}", guild);
-                let commands = vec![
-                    ModbotCmd::Punishment.build(), 
-                    ModbotCmd::FetchProfile.build()
-                ];  
-                guild.set_commands(&ctx.http, commands).await?;
-                Ok(true)  
+            Ok(true)  
         } else {
             Ok(false)
         }
@@ -85,8 +79,10 @@ impl EventHandler for ClientHandler {
         for guild in guilds {
             match ClientHandler::permission_check(&ctx, guild).await {
                 Ok(true) => {
+                    println!("Bot has permissions in connected guild {}", guild);
                     match ClientHandler::create_log(&ctx, guild).await {
                         Ok(log) => {
+                            println!("Log channel access for guild {} established", guild);
                             if let Err(e) = &self.sender.send(
                                 DBRequest {
                                     request_type: DBRequestType::IntializeLog,
@@ -100,6 +96,13 @@ impl EventHandler for ClientHandler {
                             ).await {
                                 eprintln!("Error sending log access to DB {}", e);
                             }
+                            
+                            if let Err(e) = guild.set_commands(&ctx.http, vec![
+                                ModbotCmd::Punishment.build(), 
+                                ModbotCmd::FetchProfile.build()
+                            ]).await {
+                                eprintln!("Failed to register commands for guild {}: {}", guild, e);
+                            };
                         },
                         Err(e) => {
                             continue;

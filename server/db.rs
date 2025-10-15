@@ -1,19 +1,25 @@
-use std::{collections::BTreeSet, sync::Arc};
-use polodb_core::Database;
+use std::sync::Arc;
+use arrayvec::ArrayVec;
+use polodb_core::{
+    Database,
+    CollectionT,
+    IndexModel,
+    IndexOptions,
+    bson::doc,
+};
 use tokio::sync::mpsc::Receiver;
 use serde::{Serialize, Deserialize};
-use serenity::{all::Role, model::{
+use serenity::{all::Guild, model::{
     channel::{Embed, GuildChannel}, id::{GuildId, RoleId, UserId}
 }};
 use std::collections::BTreeMap;
 
 pub struct DBHandler {
-    database: BTreeMap<GuildId, Database>,
+    database: BTreeMap<GuildId, GuildDB>,
     guildlog: BTreeMap<GuildId, GuildChannel>,
-    roleperms: BTreeMap<GuildId, BTreeMap<RoleId, bool>>,
+    roleperms: BTreeMap<GuildId, RolePermission>,
     httprequest: Option<Arc<serenity::http::Http>>,
     receiver: Receiver<DBRequest>,
-    intialized: bool,
 }
 
 impl DBHandler {
@@ -24,7 +30,6 @@ impl DBHandler {
             roleperms: BTreeMap::new(),
             httprequest: None,
             receiver,
-            intialized: false,
         }
     }
     pub async fn process_requests(&mut self) {
@@ -45,7 +50,6 @@ impl DBHandler {
                     }
                 },
                 DBRequestType::Build => {
-                    if !self.intialized {
                         if let Err(e) = std::fs::create_dir_all("server/databases") {
                             eprintln!("Failed to create database folder: {}", e);
                             return; 
@@ -53,48 +57,66 @@ impl DBHandler {
                         for (guild, _) in &self.guildlog {
                             // Generate a database path for each guild
                             let db_path = format!("server/databases/{}.db", guild);
-                            match Database::open_file(&db_path) {
+                            // Hang can occur here if improper drop, application closing needs to be handled eventually.
+                            match Database::open_path(&db_path) {
                                 Ok(db) => {
-                                    println!("Database initialized for guild {}", db_path);
-                                    self.database.insert(*guild, db);
+                                    let profilecol = db.collection::<Profile>("Profile");
+                                    let tempcol = db.collection::<Temporary>("Temporary");
+                                    let rolecol = db.collection::<RolePermission>("RolePermission");
+                                    
+                                    // Store with Bitwise ! duration to get the most recent punishment at the top
+                                    // ASC is the only working order (1)
+                                    if let Err(e) = profilecol.create_index(IndexModel {
+                                        keys: doc!{ 
+                                            "duration": 1,
+                                        },
+                                        options: None,
+                                    }) {
+                                        eprintln!("Failed to create index for Profile collection in guild {}: {}", guild, e);
+                                    }
+
+                                    if let Err(e) = tempcol.create_index(IndexModel {
+                                        keys: doc!{ 
+                                            "duration": 1,
+                                        },
+                                        options: None,
+                                    }) {
+                                        eprintln!("Failed to create index for Temporary collection in guild {}: {}", guild, e);
+                                    }
+                                    
+                                    self.database.insert(*guild, 
+                                        GuildDB {
+                                        db,
+                                        profilecol,
+                                        tempcol,
+                                        rolecol
+                                    });
+
+                                    println!("Initialized database for guild {}", guild);
                                 }
                                 Err(e) => {
                                     eprintln!("Failed to initialize database for guild {}: {}", guild, e);
                                 }
                             }
                         }
-                        self.intialized = true;
-                    }
                 },
                 DBRequestType::FetchProfile => {
-                    if self.intialized {
 
-                    }
                 },
                 DBRequestType::AddPunishment => {
-                    if self.intialized {
 
-                    }
                 },
                 DBRequestType::RemovePunishment => {
-                    if self.intialized {
 
-                    }
                 },
                 DBRequestType::EditPunishment => {
-                    if self.intialized {
 
-                    }
                 },
                 DBRequestType::TemporaryComplete => {
-                    if self.intialized {
 
-                    }
                 },
                 DBRequestType::CommandPermissionUpdate => {
-                    if self.intialized {
-
-                    }
+ 
                 }
             }
         }
@@ -113,11 +135,24 @@ pub enum DBRequestType {
     CommandPermissionUpdate,
 }
 
+struct GuildDB {
+    db: Database,
+    profilecol: polodb_core::Collection<Profile>,
+    tempcol: polodb_core::Collection<Temporary>,
+    rolecol: polodb_core::Collection<RolePermission>,
+}
+
 pub struct DBRequest {
     pub request_type: DBRequestType,
     pub usercommand: Option<UserCommand>,
-    pub commandupdate: Option<(String, RoleId)>,
+    pub commandupdate: Option<RolePermission>,
     pub init: Option<DBIntialization>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RolePermission {
+    pub role_id: RoleId,
+    pub allow: bool,
 }
 
 pub struct UserCommand {
@@ -145,15 +180,10 @@ struct Profile {
     duration: u64,
 }
 
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Temporary {
     user_id: UserId,
     punishment: String,
-    duration: u64, 
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct RolePermission {
-    role_id: RoleId,
-    allow: bool,
+    duration: u64,
 }
