@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use serenity::{
     model::{
         application::CommandOptionType,

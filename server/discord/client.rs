@@ -10,7 +10,6 @@ use serenity::{
         permissions::Permissions,
         guild, 
         id::{ChannelId, CommandId, GuildId, UserId}, 
-        user::CurrentUser,
     }, 
     prelude::*
 };

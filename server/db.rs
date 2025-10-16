@@ -1,5 +1,3 @@
-use std::sync::Arc;
-use arrayvec::ArrayVec;
 use polodb_core::{
     Database,
     CollectionT,
@@ -7,12 +5,11 @@ use polodb_core::{
     IndexOptions,
     bson::doc,
 };
+use crate::discord::embed::profembed;
 use tokio::sync::mpsc::Receiver;
 use serde::{Serialize, Deserialize};
 use serenity::{
-    all::CommandInteraction, 
-    model::{ channel::{Embed, GuildChannel}, id::{GuildId, RoleId, UserId}},
-    builder::{CreateInteractionResponse, CreateInteractionResponseMessage,CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter},
+    all::{CommandInteraction, PartialMember, User}, builder::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage}, model::{ channel::{Embed, GuildChannel}, guild, id::{GuildId, RoleId, UserId}, Timestamp}
 };
 use std::collections::BTreeMap;
 
@@ -63,7 +60,7 @@ impl DBHandler {
                                 // ASC is the only working order (1)
                                 if let Err(e) = profilecol.create_index(IndexModel {
                                     keys: doc!{ 
-                                        "duration": 1,
+                                        "negdur": 1,
                                     },
                                     options: None,
                                 }) {
@@ -72,7 +69,7 @@ impl DBHandler {
 
                                 if let Err(e) = tempcol.create_index(IndexModel {
                                     keys: doc!{ 
-                                        "duration": 1,
+                                        "negdur": 1,
                                     },
                                     options: None,
                                 }) {
@@ -95,9 +92,16 @@ impl DBHandler {
                 },
                 DBRequestType::FetchProfile => {
                     if let (Some(cmd), Some(ctx)) = (request.command, request.context) {
+                        let (profile, user, member) = match self.profile_query(&cmd).await {
+                            Some((p, u, m)) => (p, u, m),
+                            None => {
+                                eprintln!("Error retrieving profile for user in guild {}", cmd.guild_id.unwrap_or_default());
+                                continue;
+                            }
+                        };
                         cmd.create_response(&ctx.http, CreateInteractionResponse::Message(  
-                            CreateInteractionResponseMessage::new()  
-                                .content("This message is only visible to you!")  
+                            CreateInteractionResponseMessage::new()    
+                                .embed(profembed(&cmd.user,user, member, &ctx.cache).await)
                                 .ephemeral(true)  
                         )).await.expect("Failed to create response");
                     }
@@ -127,6 +131,36 @@ impl DBHandler {
                 }
             }
         }
+    }
+
+    async fn profile_query(&self, cmd: &CommandInteraction) -> Option<(Profile, User, PartialMember)> {
+        if let Some(guildDB) = self.database.get(&cmd.guild_id.unwrap_or_default()) {
+            let user = match cmd.data.resolved.users.values().next().cloned() {
+                Some(u) => u,
+                None => return None,
+            };
+            let member = match cmd.data.resolved.members.values().next().cloned() {
+                Some(m) => m,
+                None => return None,
+            };
+            let userid = i64::from(user.id);
+            match guildDB.profilecol.find_one(doc! { "user_id": userid}) {
+                Ok(Some(profile)) => return Some((profile, user, member)),
+                Ok(None) => {
+                    if let Err(e) = guildDB.profilecol.insert_one(Profile::new(userid)) {
+                        eprintln!("Error creating new profile in Fetch Profile: {}", e);
+                    }
+                    return Some((Profile::new(userid), user, member));
+                },
+                Err(e) => {
+                    eprintln!("Error retrieving profile in Fetch Profile: {}", e);
+                    return None;
+            }
+        };
+        } else {
+            eprintln!("No database found for queried guild in Fetch Profile");
+        }
+        return None;
     }
 }
 
@@ -169,16 +203,55 @@ Maybe consider keeping struct elements of the embed for easy recreation?
 */ 
 
 #[derive(Debug, Serialize, Deserialize)]
+// We will need to convert UserId to i64 for BSON queries
 struct Profile {
-    user_id: UserId,
-    profile: Embed,
-    duration: u64,
+    user_id: i64,
+    punishments: Vec<Punishment>,
+    negdur: i64,
 }
 
+impl Profile {
+    pub fn new(user_id: i64) -> Self {
+        Profile {
+            user_id,
+            punishments: Vec::new(),
+            negdur: !Timestamp::now().unix_timestamp(),
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Temporary {
-    user_id: UserId,
-    punishment: String,
-    duration: u64,
+    user_id: i64,
+    punishment: Punishment,
+    negdur: i64,
 }
+
+impl Temporary {
+    pub fn new(user_id: i64, punishment: Punishment, duration: i64) -> Self {
+        Temporary {
+            user_id,
+            punishment,
+            negdur: !duration,
+        }
+    }
+}
+ 
+#[derive(Debug, Serialize, Deserialize)]
+pub enum PunishmentType {
+    Warn,
+    Mute,
+    Kick,
+    Ban,
+    Timeout,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Punishment {
+    pub ptype: PunishmentType,
+    pub reason: String,
+    pub moderator: UserId,
+    pub length: (Timestamp, Timestamp)
+}
+
+
