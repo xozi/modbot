@@ -75,6 +75,8 @@ The /punish command will be utilized to add, remove or edit a punishment on a us
 How punishments will be handled will depend on whether they're given a time and duration.
 For temporary punishments, DB_Handler workers are to be generated and given a clone of mpsc sender to communicate when it's finished based on Unicode time of completion in the database. Permanent punishments can be achieved by omitting a duration.
 
+Note that edit should be used to commute a sentence, while remove should be use to entirely remove it from record.
+
 Note: Flags should be triggered indicating an active punishment or removed afterwards, to be displayed on the moderation profile of the user.
 
 

@@ -65,44 +65,38 @@ impl EventHandler for ClientHandler {
     async fn cache_ready(&self, ctx: Context, guilds: Vec<GuildId> ) {
         if let Err(e) = &self.sender.send(
             DBRequest {
-                request_type: DBRequestType::IntializeLog,
-                usercommand: None,
-                commandupdate: None,
-                init: Some(DBIntialization {
-                    http: Some(ctx.http.clone()),
-                    guildlog: None,
-                }),
+                request_type: DBRequestType::GiveContext,
+                command: None,
+                context: Some(ctx.clone()),
+                guildlog: None,
             }
         ).await {
-            eprintln!("Error sending HTTP access to DB {}", e);
-        }
+            eprintln!("Error sending Give Context event {}", e);
+        } 
         for guild in guilds {
             match ClientHandler::permission_check(&ctx, guild).await {
                 Ok(true) => {
                     println!("Bot has permissions in connected guild {}", guild);
                     match ClientHandler::create_log(&ctx, guild).await {
                         Ok(log) => {
-                            println!("Log channel access for guild {} established", guild);
                             if let Err(e) = &self.sender.send(
                                 DBRequest {
-                                    request_type: DBRequestType::IntializeLog,
-                                    usercommand: None,
-                                    commandupdate: None,
-                                    init: Some(DBIntialization {
-                                        http: None,
-                                        guildlog: Some((log, guild)),
-                                    }),
+                                    request_type: DBRequestType::Build,
+                                    command: None,
+                                    context: None,
+                                    guildlog: Some((log, guild)),
                                 }
                             ).await {
-                                eprintln!("Error sending log access to DB {}", e);
-                            }
-                            
+                                eprintln!("Error sending DB Build event {}", e);
+                            } 
+
                             if let Err(e) = guild.set_commands(&ctx.http, vec![
                                 ModbotCmd::Punishment.build(), 
                                 ModbotCmd::FetchProfile.build()
                             ]).await {
                                 eprintln!("Failed to register commands for guild {}: {}", guild, e);
                             };
+                            println!("Initialized modbot for guild {}", guild);
                         },
                         Err(e) => {
                             continue;
@@ -114,20 +108,89 @@ impl EventHandler for ClientHandler {
                     continue
                 }
                 Err(e) => {
-                    eprintln!("Error during permission check for guild {}: {}", guild, e);
+                    eprintln!("Error during permission check for guild, verify that right intents are given {}: {}", guild, e);
                     continue
                 }
             }
         };
-        if let Err(e) = &self.sender.send(
-            DBRequest {
-                request_type: DBRequestType::Build,
-                usercommand: None,
-                commandupdate: None,
-                init: None,
-            }
-        ).await {
-            eprintln!("Error sending log access to DB {}", e);
+    }
+
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        if let Interaction::Command(command) = interaction {
+            match command.data.name.as_str() {
+                "punishment" => {
+                    if let Some(subcommand) = command.data.options.get(0) {
+                        match subcommand.name.as_str() {
+                            "add" => {
+                                if let Err(e) = &self.sender.send(
+                                    DBRequest {
+                                        request_type: DBRequestType::AddPunishment,
+                                        command: Some(command),
+                                        context: Some(ctx),
+                                        guildlog: None,
+                                    }
+                                ).await {
+                                    eprintln!("Error sending punishment add command to DB {}", e);
+                                }
+                            },
+                            "edit" => {
+                                if let Err(e) = &self.sender.send(
+                                    DBRequest {
+                                        request_type: DBRequestType::EditPunishment,
+                                        command: Some(command),
+                                        context: Some(ctx),
+                                        guildlog: None,
+                                    }
+                                ).await {
+                                    eprintln!("Error sending punishment edit command to DB {}", e);
+                                }
+                            },
+                            "remove" => {
+                                if let Err(e) = &self.sender.send(
+                                    DBRequest {
+                                        request_type: DBRequestType::RemovePunishment,
+                                        command: Some(command),
+                                        context: Some(ctx),
+                                        guildlog: None,
+                                    }
+                                ).await {
+                                    eprintln!("Error sending punishment remove command to DB {}", e);
+                                }
+                            }
+                            _ => {
+                                return;
+                            }
+                        }
+                    }
+                },
+                "fetchprofile" => {
+                    if let Err(e) = &self.sender.send(
+                        DBRequest {
+                            request_type: DBRequestType::FetchProfile,
+                            command: Some(command),
+                            context: Some(ctx),
+                            guildlog: None,
+                        }
+                    ).await {
+                        eprintln!("Error sending fetch profile command to DB {}", e);
+                    }
+                },
+                "setpermission" => {
+                    if let Err(e) = &self.sender.send(
+                        DBRequest {
+                            request_type: DBRequestType::CommandPermissionUpdate,
+                            command: Some(command),
+                            context: Some(ctx),
+                            guildlog: None,
+                        }
+                    ).await {
+                        eprintln!("Error sending command permission update to DB {}", e);
+                    }
+                },
+                _ => {
+                    return;
+                }
+            };
         }
     }
 }
