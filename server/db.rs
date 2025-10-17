@@ -5,7 +5,9 @@ use crate::discord::{embed::profembed,commands::PunishmentType};
 use tokio::sync::mpsc::Receiver;
 use serde::{Serialize, Deserialize};
 use serenity::{
-    all::{CommandDataOption, CommandInteraction, User, ResolvedValue, Role, PartialMember}, builder::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage}, model::{ channel::{Embed, GuildChannel}, guild, id::{GuildId, RoleId, UserId}, Timestamp}
+    all::{CommandDataOption, CommandInteraction, User, ResolvedValue, Role, PartialMember}, 
+    builder::{CreateInteractionResponse, CreateInteractionResponseMessage}, 
+    model::{ channel:: GuildChannel, id::GuildId, Timestamp}
 };
 use std::collections::{BTreeMap, BTreeSet};
 

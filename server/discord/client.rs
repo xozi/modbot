@@ -99,7 +99,7 @@ impl EventHandler for ClientHandler {
                             };
                             println!("Initialized modbot for guild {}", guild);
                         },
-                        Err(e) => {
+                        Err(_e) => {
                             continue;
                         }
                     }

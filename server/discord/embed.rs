@@ -4,8 +4,8 @@ use serenity::{
     utils::{FormattedTimestamp, FormattedTimestampStyle}
 };
 use crate::{db::Profile, discord::commands::PunishmentType};
-//Add a active flag to Profile to allow for fetches to go for the last punishment and set active punishment.
-pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), profile: Profile, activePunishment: Option<PunishmentType>) -> CreateEmbed {
+//Add a active flag to Profile to allow for fetches to go for the last punishment and set active punishment. Use temporary events to disable this flag if timed.
+pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), profile: Profile, active_punishment: Option<PunishmentType>) -> CreateEmbed {
     let mut footstring = format!("Moderator: {}", invodata.name);   
     let basicembed = CreateEmbed::default()
         .title(format!("User Profile"))
@@ -34,7 +34,7 @@ pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), pr
         },
     };
 
-    let activeembed = match activePunishment {
+    let activeembed = match active_punishment {
         Some(punishment) => {
             match punishment {
                 PunishmentType::Ban => {

@@ -67,8 +67,6 @@ The main component (main.rs in the Server folder) is intialization. Serenity uti
 ### Profile 
 Profiles are embed messages with details about the user. The /fetchprofile command will generate a profile with records over the user and is dynamically updated. The profile present in #modbot-log will be more static in nature and only will be updated when a punishment is commited. The log exists for adminstrators to monitor recent punishments and keep track of moderation actions.
 
-Flags: Quick information to check against for active punishment should be added. This includes ban, mute, timeout, in server, or quarantine. (more to be added).
-
 ### Punishment
 The /punish command will be utilized to add, remove or edit a punishment on a user.
 
@@ -98,6 +96,7 @@ Documents are BSON.
 * Admin only /reverse command that helps reverse past punishments for trial mods (security), also limit ban outside their range. Integrated rate limit for trial mods. (Only consider this if necessary)
 * Optimized checks for roles to avoid unecessary API pings (hopefully the cache does this)
 * Figure out efficient means of adding image evidence to profile punishments without storing the data if possible.
+* Make a case for quarantined status flag (need to use events for that)
 
 ### Depedencies
 

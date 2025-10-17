@@ -2,7 +2,6 @@ mod discord;
 use discord::client::ClientHandler;
 mod db;
 use serenity::prelude::*;
-use tokio::sync::mpsc::{Sender, Receiver};
 
 #[tokio::main]
 async fn main() {
