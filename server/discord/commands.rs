@@ -3,24 +3,45 @@ use serenity::{
         application::CommandOptionType,
     },
     builder::{CreateCommand, CreateCommandOption},
+    all::{Role, User, PartialMember}
 };
-
-pub fn unixtime (unit: &str, period: u64) -> Option<u64> {
-    let ct = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-    match unit {
-        "s" => Some(ct + period),
-        "m" => Some(ct + period * 60),
-        "h" => Some(ct + period * 3600),
-        "d" => Some(ct + period * 86400),
-        "w" => Some(ct + period * 604800),
-        _ => None,
-    }
-}
+use serde::{Serialize, Deserialize};
 
 pub enum ModbotCmd {
     FetchProfile,
     Punishment,
-    PermissionSet,
+    RoleSet,
+}
+
+//Reference of all values known in commands
+#[derive(Default, Debug)]
+pub struct CommandOptions {
+    pub user: Option<User>,
+    pub member: Option<PartialMember>,
+    pub role: Option<Role>,
+    pub reason: Option<String>,
+    pub allow: Option<bool>,
+    pub duration: Option<i64>,
+    pub units: Option<String>,
+    pub id: Option<i64>,
+    pub latest: Option<bool>,
+    pub punishment: Option<PunishmentType>,
+    pub action: Option<PunishmentAction>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum PunishmentType {
+    Warn,
+    Mute,
+    Ban,
+    Timeout,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum PunishmentAction {
+    Add,
+    Remove,
+    Edit,
 }
 
 impl ModbotCmd {
@@ -210,8 +231,8 @@ impl ModbotCmd {
                             .add_string_choice("hours", "H")
                             .add_string_choice("days", "D"))
                     ),
-            ModbotCmd::PermissionSet => 
-                CreateCommand::new("setpermission")
+            ModbotCmd::RoleSet => 
+                CreateCommand::new("roleset")
                     .description("Set role permission for commands")
                     .add_option(CreateCommandOption::new(
                         CommandOptionType::Role,

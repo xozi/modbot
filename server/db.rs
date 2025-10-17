@@ -1,22 +1,18 @@
 use polodb_core::{
-    Database,
-    CollectionT,
-    IndexModel,
-    IndexOptions,
-    bson::doc,
+    bson::doc, options, CollectionT, Database, IndexModel, IndexOptions
 };
-use crate::discord::embed::profembed;
+use crate::discord::{embed::profembed,commands::PunishmentType};
 use tokio::sync::mpsc::Receiver;
 use serde::{Serialize, Deserialize};
 use serenity::{
-    all::{CommandInteraction, PartialMember, User}, builder::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage}, model::{ channel::{Embed, GuildChannel}, guild, id::{GuildId, RoleId, UserId}, Timestamp}
+    all::{CommandDataOption, CommandInteraction, User, ResolvedValue, Role, PartialMember}, builder::{CreateEmbed, CreateEmbedAuthor, CreateEmbedFooter, CreateInteractionResponse, CreateInteractionResponseMessage}, model::{ channel::{Embed, GuildChannel}, guild, id::{GuildId, RoleId, UserId}, Timestamp}
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub struct DBHandler {
     database: BTreeMap<GuildId, GuildDB>,
     guildlog: BTreeMap<GuildId, GuildChannel>,
-    roleperms: BTreeMap<GuildId, RolePermission>,
+    roleperms: BTreeMap<GuildId, BTreeSet<RolePermission>>,
     context: Option<serenity::prelude::Context>,
     receiver: Receiver<DBRequest>,
 }
@@ -91,41 +87,34 @@ impl DBHandler {
                     }
                 },
                 DBRequestType::FetchProfile => {
-                    if let (Some(cmd), Some(ctx)) = (request.command, request.context) {
-                        let (profile, user, member) = match self.profile_query(&cmd).await {
-                            Some((p, u, m)) => (p, u, m),
-                            None => {
-                                eprintln!("Error retrieving profile for user in guild {}", cmd.guild_id.unwrap_or_default());
-                                continue;
-                            }
-                        };
-                        cmd.create_response(&ctx.http, CreateInteractionResponse::Message(  
+                    if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
+                        cmd.command.create_response(&ctx.http, CreateInteractionResponse::Message(  
                             CreateInteractionResponseMessage::new()    
-                                .embed(profembed(&cmd.user,user, member, &ctx.cache).await)
-                                .ephemeral(true)  
-                        )).await.expect("Failed to create response");
+                                .embed(profembed(&cmd.invoker,&cmd.target, &ctx.cache).await)
+                                .ephemeral(true)
+                        )).await.expect("Failed to send response");
                     }
                 },
                 DBRequestType::AddPunishment => {
-                    if let Some(command) = request.command {
-                        
+                    if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
+                        //let userprofile = self.get_profile(cmd.target.0.id.get() as i64, cmd.target.1.guild_id).await;
                     }
                 },
                 DBRequestType::RemovePunishment => {
-                    if let Some(command) = request.command {
+                    if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
                         
                     }
                 },
                 DBRequestType::EditPunishment => {
-                    if let Some(command) = request.command {
+                    if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
                         
                     }
                 },
                 DBRequestType::TemporaryComplete => {
-
+                    
                 },
                 DBRequestType::CommandPermissionUpdate => {
-                     if let Some(command) = request.command {
+                    if let ((_,Some(cmd)), Some(ctx)) = (request.command, request.context) {
                         
                     }
                 }
@@ -133,35 +122,49 @@ impl DBHandler {
         }
     }
 
-    async fn profile_query(&self, cmd: &CommandInteraction) -> Option<(Profile, User, PartialMember)> {
-        if let Some(guildDB) = self.database.get(&cmd.guild_id.unwrap_or_default()) {
-            let user = match cmd.data.resolved.users.values().next().cloned() {
-                Some(u) => u,
-                None => return None,
-            };
-            let member = match cmd.data.resolved.members.values().next().cloned() {
-                Some(m) => m,
-                None => return None,
-            };
-            let userid = i64::from(user.id);
-            match guildDB.profilecol.find_one(doc! { "user_id": userid}) {
-                Ok(Some(profile)) => return Some((profile, user, member)),
+    async fn get_profile(&self, userid: i64, guildid: &GuildId) -> Option<Profile> {
+        if let Some(guilddb) = self.database.get(guildid) {
+            match guilddb.profilecol.find_one(doc! { "user_id": userid}) {
+                Ok(Some(profile)) => return Some(profile),
                 Ok(None) => {
-                    if let Err(e) = guildDB.profilecol.insert_one(Profile::new(userid)) {
-                        eprintln!("Error creating new profile in Fetch Profile: {}", e);
+                    if let Err(e) = guilddb.profilecol.insert_one(Profile::new(userid)) {
+                        eprintln!("Error creating new profile in Profile Query: {}", e);
+                        return None;
                     }
-                    return Some((Profile::new(userid), user, member));
+                    return Some(Profile::new(userid));
                 },
                 Err(e) => {
-                    eprintln!("Error retrieving profile in Fetch Profile: {}", e);
+                    eprintln!("Error retrieving profile in Profile Query: {}", e);
                     return None;
-            }
-        };
+                }
+            };
         } else {
-            eprintln!("No database found for queried guild in Fetch Profile");
+            eprintln!("No database found for queried guild in Profile Query");
         }
         return None;
     }
+
+    async fn get_roleperm(&self, roleid: i64, guildid: &GuildId) -> Option<RolePermission> {
+        if let Some(guilddb) = self.database.get(guildid) {
+            match guilddb.rolecol.find_one(doc! { "role_id": roleid}) {
+                Ok(Some(role)) => return Some(role),
+                Ok(None) => {
+                    if let Err(e) = guilddb.rolecol.insert_one(RolePermission::new(roleid)) {
+                        eprintln!("Error creating new role in Role Query: {}", e);
+                        return None;
+                    }
+                    return Some(RolePermission::new(roleid));
+                },
+                Err(e) => {
+                    eprintln!("Error retrieving role in Role Query: {}", e);
+                    return None;
+                }
+            };
+        } else {
+            eprintln!("No database found for queried guild in Role Query");
+        }
+        return None;
+    } 
 }
 
 pub enum DBRequestType {
@@ -184,15 +187,37 @@ struct GuildDB {
 
 pub struct DBRequest {
     pub request_type: DBRequestType,
-    pub command: Option<CommandInteraction>,
+    pub command: (Option<UserCommand>, Option<RoleCommand>),
     pub context: Option<serenity::prelude::Context>,
     pub guildlog: Option<(GuildChannel, GuildId)>,
 }
 
+pub struct UserCommand{
+    pub command: CommandInteraction,
+    pub target: (User, Option<PartialMember>),
+    pub invoker: User,
+    pub punishment: (Option<Punishment>,Option<Adjust>),
+}
+pub struct RoleCommand{
+    pub command: CommandInteraction,
+    pub target: Role,
+    pub invoker: User,
+    pub allow: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RolePermission {
-    pub role_id: RoleId,
+    pub role_id: i64,
     pub allow: bool,
+}
+
+impl RolePermission {
+    pub fn new(role_id: i64) -> Self {
+        RolePermission {
+            role_id,
+            allow: false,
+        }
+    }
 }
 
 /*
@@ -206,7 +231,7 @@ Maybe consider keeping struct elements of the embed for easy recreation?
 // We will need to convert UserId to i64 for BSON queries
 struct Profile {
     user_id: i64,
-    punishments: Vec<Punishment>,
+    punishments: BTreeMap<i64,Punishment>,
     negdur: i64,
 }
 
@@ -214,7 +239,7 @@ impl Profile {
     pub fn new(user_id: i64) -> Self {
         Profile {
             user_id,
-            punishments: Vec::new(),
+            punishments: BTreeMap::new(),
             negdur: !Timestamp::now().unix_timestamp(),
         }
     }
@@ -237,21 +262,17 @@ impl Temporary {
     }
 }
  
-#[derive(Debug, Serialize, Deserialize)]
-pub enum PunishmentType {
-    Warn,
-    Mute,
-    Kick,
-    Ban,
-    Timeout,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Punishment {
     pub ptype: PunishmentType,
-    pub reason: String,
-    pub moderator: UserId,
-    pub length: (Timestamp, Timestamp)
+    pub reason: Option<String>,
+    pub length: Option<u64>,
 }
 
-
+pub struct Adjust {
+    pub reason: Option<String>,
+    pub length: Option<u64>,
+    pub latest: Option<bool>,
+    pub id: Option<i64>,
+}

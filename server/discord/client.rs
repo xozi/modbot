@@ -1,17 +1,9 @@
-use crate::{db::*, discord::commands::ModbotCmd};
+use crate::{db::*, discord::commands::ModbotCmd, discord::commands::{CommandOptions, PunishmentType, PunishmentAction}};
 
 use serenity::{
-    async_trait, 
-    builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage, CreateChannel}, 
-    futures::{io::empty, *}, 
-    model::{
-        application::{Command, Interaction}, 
-        channel::*,
-        permissions::Permissions,
-        guild, 
-        id::{ChannelId, CommandId, GuildId, UserId}, 
-    }, 
-    prelude::*
+    all::{CommandInteraction, PartialMember, ResolvedValue, Role, User}, async_trait, builder::{CreateChannel, CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage}, futures::{io::empty, *}, model::{
+        application::{Command, CommandDataOption, CommandDataOptionValue, CommandOptionType, Interaction}, channel::*, guild, id::{ChannelId, CommandId, GuildId, UserId}, permissions::Permissions 
+    }, prelude::*
 };
 use tokio::sync::mpsc::Sender;
 pub struct ClientHandler {
@@ -47,7 +39,6 @@ impl ClientHandler {
             }
     }
     
-
     async fn permission_check(ctx: &Context, guild: GuildId) -> Result<bool, SerenityError> {
         let bot_id = ctx.cache.current_user().id;
         let member = guild.member(&ctx.http, bot_id).await?;
@@ -55,6 +46,15 @@ impl ClientHandler {
             Ok(true)  
         } else {
             Ok(false)
+        }
+    }
+
+    fn millis (unit: &str, period: u64) -> Option<u64> {
+        match unit {
+            "M" => Some(period * 1000 * 60),
+            "H" => Some(period * 1000 * 60 * 60),
+            "D" => Some(period * 1000 * 60 * 60 * 24),
+            _ => None,
         }
     }
 }
@@ -65,7 +65,7 @@ impl EventHandler for ClientHandler {
         if let Err(e) = &self.sender.send(
             DBRequest {
                 request_type: DBRequestType::GiveContext,
-                command: None,
+                command: (None,None),
                 context: Some(ctx.clone()),
                 guildlog: None,
             }
@@ -81,7 +81,7 @@ impl EventHandler for ClientHandler {
                             if let Err(e) = &self.sender.send(
                                 DBRequest {
                                     request_type: DBRequestType::Build,
-                                    command: None,
+                                    command: (None,None),
                                     context: None,
                                     guildlog: Some((log, guild)),
                                 }
@@ -91,7 +91,8 @@ impl EventHandler for ClientHandler {
 
                             if let Err(e) = guild.set_commands(&ctx.http, vec![
                                 ModbotCmd::Punishment.build(), 
-                                ModbotCmd::FetchProfile.build()
+                                ModbotCmd::FetchProfile.build(), 
+                                ModbotCmd::RoleSet.build()
                             ]).await {
                                 eprintln!("Failed to register commands for guild {}: {}", guild, e);
                             };
@@ -116,75 +117,309 @@ impl EventHandler for ClientHandler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(command) = interaction {
+            let invoker = command.user.clone();
+            let mut opts = CommandOptions::default();
+            // Parse every current option
+            for opt in command.data.options() {
+                match (opt.name, &opt.value) {
+                    ("user", ResolvedValue::User(u, m)) => {
+                        if let Some(m) = m {
+                            opts.member = Some((**m).clone());
+                        }
+                        opts.user = Some((**u).clone());
+                    },
+                    ("role", ResolvedValue::Role(r)) => {
+                        opts.role = Some((**r).clone());
+                    },
+                    ("add", ResolvedValue::SubCommandGroup{ .. }) => {
+                        opts.action = Some(PunishmentAction::Add);
+                        if let ResolvedValue::SubCommandGroup(options) = &opt.value {
+                            //Should only be one subcommand here
+                            for subopt in options {
+                                match (subopt.name, &subopt.value) {
+                                    ("warn", ResolvedValue::SubCommand { .. }) => {
+                                        opts.punishment = Some(PunishmentType::Warn);
+                                        if let ResolvedValue::SubCommand(options) = &subopt.value {
+                                            for subopt2 in options {
+                                                match (subopt2.name, &subopt2.value) {
+                                                    ("user", ResolvedValue::User(u, m)) => {
+                                                        if let Some(m) = m {
+                                                            opts.member = Some((**m).clone());
+                                                        }
+                                                        opts.user = Some((**u).clone());
+                                                    },
+                                                    ("duration", ResolvedValue::Integer(d)) => {
+                                                        opts.duration = Some(*d);
+                                                    },
+                                                    ("units", ResolvedValue::String(u)) => {
+                                                        opts.units = Some((*u).to_string());
+                                                    },
+                                                    ("reason", ResolvedValue::String(r)) => {
+                                                        opts.reason = Some((*r).to_string());
+                                                    },
+                                                    _ => {}
+                                                }
+                                            }
+                                        }
+                                    },
+                                    ("mute", ResolvedValue::SubCommand { .. }) => {
+                                        opts.punishment = Some(PunishmentType::Mute);
+                                        if let ResolvedValue::SubCommand(options) = &subopt.value {
+                                            for subopt2 in options {
+                                                match (subopt2.name, &subopt2.value) {
+                                                    ("user", ResolvedValue::User(u, m)) => {
+                                                        if let Some(m) = m {
+                                                            opts.member = Some((**m).clone());
+                                                        }
+                                                        opts.user = Some((**u).clone());
+                                                    },
+                                                    ("duration", ResolvedValue::Integer(d)) => {
+                                                        opts.duration = Some(*d);
+                                                    },
+                                                    ("units", ResolvedValue::String(u)) => {
+                                                        opts.units = Some((*u).to_string());
+                                                    },
+                                                    ("reason", ResolvedValue::String(r)) => {
+                                                        opts.reason = Some((*r).to_string());
+                                                    },
+                                                    _ => {}
+                                                }
+                                            }
+                                        }
+                                    },
+                                    ("timeout", ResolvedValue::SubCommand { .. }) => {
+                                        opts.punishment = Some(PunishmentType::Timeout);
+                                        if let ResolvedValue::SubCommand(options) = &subopt.value {
+                                            for subopt2 in options {
+                                                match (subopt2.name, &subopt2.value) {
+                                                    ("user", ResolvedValue::User(u, m)) => {
+                                                        if let Some(m) = m {
+                                                            opts.member = Some((**m).clone());
+                                                        }
+                                                        opts.user = Some((**u).clone());
+                                                    },
+                                                    ("duration", ResolvedValue::Integer(d)) => {
+                                                        opts.duration = Some(*d);
+                                                    },
+                                                    ("units", ResolvedValue::String(u)) => {
+                                                        opts.units = Some((*u).to_string());
+                                                    },
+                                                    ("reason", ResolvedValue::String(r)) => {
+                                                        opts.reason = Some((*r).to_string());
+                                                    },
+                                                    _ => {}
+                                                }
+                                            }
+                                        }
+                                    },
+                                    ("ban", ResolvedValue::SubCommand { .. }) => {
+                                        opts.punishment = Some(PunishmentType::Ban);
+                                        if let ResolvedValue::SubCommand(options) = &subopt.value {
+                                            for subopt2 in options {
+                                                match (subopt2.name, &subopt2.value) {
+                                                    ("user", ResolvedValue::User(u, m)) => {
+                                                        if let Some(m) = m {
+                                                            opts.member = Some((**m).clone());
+                                                        }
+                                                        opts.user = Some((**u).clone());
+                                                    },
+                                                    ("duration", ResolvedValue::Integer(d)) => {
+                                                        opts.duration = Some(*d);
+                                                    },
+                                                    ("units", ResolvedValue::String(u)) => {
+                                                        opts.units = Some((*u).to_string());
+                                                    },
+                                                    ("reason", ResolvedValue::String(r)) => {
+                                                        opts.reason = Some((*r).to_string());
+                                                    },
+                                                    _ => {}
+                                                }
+                                            }
+                                        }
+                                    },
+                                    _ => {}
+                                }
+                            }
+                        }
+                    },
+                    ("remove", ResolvedValue::SubCommand{ .. }) => {
+                        opts.action = Some(PunishmentAction::Remove);
+                    },
+                    ("edit", ResolvedValue::SubCommand{ .. }) => {
+                        opts.action = Some(PunishmentAction::Edit);
+                    },
+                    ("duration", ResolvedValue::Integer(d)) => {
+                        opts.duration = Some(*d);
+                    },
+                    ("units", ResolvedValue::String(u)) => {
+                        opts.units = Some((*u).to_string());
+                    },
+                    ("reason", ResolvedValue::String(r)) => {
+                        opts.reason = Some((*r).to_string());
+                    },
+                    ("id", ResolvedValue::Integer(i)) => {
+                        opts.id = Some(*i);
+                    },
+                    ("latest", ResolvedValue::Boolean(l)) => {
+                        opts.latest = Some(*l);
+                    },
+                    ("allow", ResolvedValue::Boolean(a)) => {
+                        opts.allow = Some(*a);
+                    },
+                    _ => {}
+                }
+            }
             match command.data.name.as_str() {
                 "punishment" => {
-                    if let Some(subcommand) = command.data.options.get(0) {
-                        match subcommand.name.as_str() {
-                            "add" => {
-                                if let Err(e) = &self.sender.send(
-                                    DBRequest {
-                                        request_type: DBRequestType::AddPunishment,
-                                        command: Some(command),
-                                        context: Some(ctx),
-                                        guildlog: None,
-                                    }
-                                ).await {
-                                    eprintln!("Error sending punishment add command to DB {}", e);
-                                }
-                            },
-                            "edit" => {
-                                if let Err(e) = &self.sender.send(
-                                    DBRequest {
-                                        request_type: DBRequestType::EditPunishment,
-                                        command: Some(command),
-                                        context: Some(ctx),
-                                        guildlog: None,
-                                    }
-                                ).await {
-                                    eprintln!("Error sending punishment edit command to DB {}", e);
-                                }
-                            },
-                            "remove" => {
-                                if let Err(e) = &self.sender.send(
-                                    DBRequest {
-                                        request_type: DBRequestType::RemovePunishment,
-                                        command: Some(command),
-                                        context: Some(ctx),
-                                        guildlog: None,
-                                    }
-                                ).await {
-                                    eprintln!("Error sending punishment remove command to DB {}", e);
-                                }
+                    let (user, member) = match (opts.user, opts.member) {
+                        (Some(u), Some(m)) => {
+                            (u, Some(m))
+                        },
+                        (Some(u), None) => {
+                            (u, None)
+                        },
+                        _ => {
+                            command.create_response(&ctx.http, CreateInteractionResponse::Message(  
+                            CreateInteractionResponseMessage::new()    
+                                .content("Missing user and member information.")
+                                .ephemeral(true)
+                            )).await.expect("Failed to send response");
+                            return;
+                        }
+                    };
+                    
+                    let length = match (opts.duration, opts.units) {
+                        (Some(duration),Some(units)) => {
+                            ClientHandler::millis(&units, duration as u64)
+                        },
+                        (Some(_),None) => {
+                            command.create_response(&ctx.http, CreateInteractionResponse::Message(  
+                                CreateInteractionResponseMessage::new()    
+                                    .content("Units provided without duration")
+                                    .ephemeral(true)
+                            )).await.expect("Failed to send response");
+                            return;
+                        },
+                        (None,Some(_)) => {
+                            command.create_response(&ctx.http, CreateInteractionResponse::Message(  
+                                CreateInteractionResponseMessage::new()    
+                                    .content("Duration provided without units")
+                                    .ephemeral(true)
+                            )).await.expect("Failed to send response");
+                            return;
+                        },
+                        _ => {
+                            None
+                        }
+                    };
+
+                    match(opts.action) {
+                        Some(PunishmentAction::Add) => {
+                            if let Some(punishment) = opts.punishment {
+                                self.sender.send(DBRequest {
+                                    request_type: DBRequestType::AddPunishment,
+                                    command: (Some(UserCommand {
+                                        command,
+                                        target: (user, member),
+                                        invoker: invoker,
+                                        punishment: (Some(Punishment {
+                                            ptype: punishment,
+                                            reason: opts.reason,
+                                            length,
+                                        }),None),
+                                    }), None),
+                                    context: Some(ctx),
+                                    guildlog: None,
+                                }).await.unwrap_or_else(|e| {
+                                    eprintln!("Error sending Punishment event {}", e);
+                                });
                             }
-                            _ => {
-                                return;
+                        }
+                        Some(PunishmentAction::Remove) => {
+                                self.sender.send(DBRequest {
+                                    request_type: DBRequestType::RemovePunishment,
+                                    command: (Some(UserCommand {
+                                        command,
+                                        target: (user, member),
+                                        invoker: invoker,
+                                        punishment: (None, Some(Adjust {
+                                            reason: opts.reason,
+                                            length,
+                                            latest: opts.latest,
+                                            id: opts.id,
+                                        })),
+                                    }), None),
+                                    context: Some(ctx),
+                                    guildlog: None,
+                                }).await.unwrap_or_else(|e| {
+                                    eprintln!("Error sending Punishment event {}", e);
+                                });
                             }
+                        Some(PunishmentAction::Edit) => {
+                                self.sender.send(DBRequest {
+                                    request_type: DBRequestType::EditPunishment,
+                                    command: (Some(UserCommand {
+                                        command,
+                                        target: (user, member),
+                                        invoker: invoker,
+                                        punishment: (None, Some(Adjust {
+                                            reason: opts.reason,
+                                            length,
+                                            latest: opts.latest,
+                                            id: opts.id,
+                                        })),
+                                    }), None),
+                                    context: Some(ctx),
+                                    guildlog: None,
+                                }).await.unwrap_or_else(|e| {
+                                    eprintln!("Error sending Punishment event {}", e);
+                                });
+                            }
+                        None => {
+                            command.create_response(&ctx.http, CreateInteractionResponse::Message(  
+                                CreateInteractionResponseMessage::new()    
+                                    .content("Missing action option.")
+                                    .ephemeral(true)
+                            )).await.expect("Failed to send response");
+                            return;
                         }
                     }
                 },
                 "fetchprofile" => {
-                    if let Err(e) = &self.sender.send(
-                        DBRequest {
-                            request_type: DBRequestType::FetchProfile,
-                            command: Some(command),
-                            context: Some(ctx),
-                            guildlog: None,
+                    let (user, member) = match (opts.user, opts.member) {
+                        (Some(u), Some(m)) => {
+                            (u, Some(m))
+                        },
+                        (Some(u), None) => {
+                            (u, None)
+                        },
+                        _ => {
+                            command.create_response(&ctx.http, CreateInteractionResponse::Message(  
+                            CreateInteractionResponseMessage::new()    
+                                .content("Missing user and member information.")
+                                .ephemeral(true)
+                            )).await.expect("Failed to send response");
+                            return;
                         }
-                    ).await {
-                        eprintln!("Error sending fetch profile command to DB {}", e);
+                    };
+                    self.sender.send(DBRequest {
+                        request_type: DBRequestType::FetchProfile,
+                        command: (Some(UserCommand {
+                            command,
+                            target: (user, member),
+                            invoker: invoker,
+                            punishment: (None,None),
+                        }), None),
+                        context: Some(ctx),
+                        guildlog: None,
                     }
+                    ).await.unwrap_or_else(|e| {
+                        eprintln!("Error sending Fetch Profile event {}", e);
+                    });
+                    return;
                 },
-                "setpermission" => {
-                    if let Err(e) = &self.sender.send(
-                        DBRequest {
-                            request_type: DBRequestType::CommandPermissionUpdate,
-                            command: Some(command),
-                            context: Some(ctx),
-                            guildlog: None,
-                        }
-                    ).await {
-                        eprintln!("Error sending command permission update to DB {}", e);
-                    }
+                "roleset" => {
+
                 },
                 _ => {
                     return;
@@ -193,4 +428,3 @@ impl EventHandler for ClientHandler {
         }
     }
 }
-
