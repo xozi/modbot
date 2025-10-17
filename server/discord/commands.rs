@@ -1,9 +1,7 @@
 use serenity::{
-    model::{
-        application::CommandOptionType,
-    },
-    builder::{CreateCommand, CreateCommandOption},
-    all::{Role, User, PartialMember}
+    all::{Integration, PartialMember, Role, User}, 
+    builder::{CreateCommand, CreateCommandOption}, 
+    model::{application::{CommandOptionType, InstallationContext, InteractionContext},Permissions}
 };
 use serde::{Serialize, Deserialize};
 
@@ -49,6 +47,9 @@ impl ModbotCmd {
         match self {
             ModbotCmd::FetchProfile => 
                 CreateCommand::new("fetchprofile")
+                    .default_member_permissions(Permissions::ADMINISTRATOR)
+                    .add_context(InteractionContext::Guild)
+                    .add_integration_type(InstallationContext::Guild)
                     .description("Fetch a user's profile")
                     .add_option(CreateCommandOption::new(
                             CommandOptionType::User,
@@ -59,6 +60,9 @@ impl ModbotCmd {
                         ),
             ModbotCmd::Punishment =>
                 CreateCommand::new("punish")
+                    .default_member_permissions(Permissions::ADMINISTRATOR)
+                    .add_context(InteractionContext::Guild)
+                    .add_integration_type(InstallationContext::Guild)
                     .description("Add/remove/edit punishment to a user")
                     // Add
                     .add_option(CreateCommandOption::new(
@@ -233,6 +237,9 @@ impl ModbotCmd {
                     ),
             ModbotCmd::RoleSet => 
                 CreateCommand::new("roleset")
+                    .default_member_permissions(Permissions::ADMINISTRATOR)
+                    .add_context(InteractionContext::Guild)
+                    .add_integration_type(InstallationContext::Guild)
                     .description("Set role permission for commands")
                     .add_option(CreateCommandOption::new(
                         CommandOptionType::Role,

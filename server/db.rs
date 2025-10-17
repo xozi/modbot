@@ -14,7 +14,6 @@ use std::collections::{BTreeMap, BTreeSet};
 pub struct DBHandler {
     database: BTreeMap<GuildId, GuildDB>,
     guildlog: BTreeMap<GuildId, GuildChannel>,
-    roleperms: BTreeMap<GuildId, BTreeSet<RolePermission>>,
     context: Option<serenity::prelude::Context>,
     receiver: Receiver<DBRequest>,
 }
@@ -24,7 +23,6 @@ impl DBHandler {
         DBHandler {
             database: BTreeMap::new(),
             guildlog: BTreeMap::new(),
-            roleperms: BTreeMap::new(),
             context: None,
             receiver,
         }

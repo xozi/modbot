@@ -75,7 +75,13 @@ For temporary punishments, DB_Handler workers are to be generated and given a cl
 
 Note that edit should be used to commute a sentence, while remove should be use to entirely remove it from record.
 
-Note: Flags should be triggered indicating an active punishment or removed afterwards, to be displayed on the moderation profile of the user.
+Commands will be role limited, necessary documents for setting role system including a database to store these roles should be established:
+https://docs.rs/serenity/latest/serenity/builder/struct.CreateCommandPermission.html
+
+It can be proactively updated, avoiding the need of restart:
+https://docs.rs/serenity/latest/serenity/model/id/struct.GuildId.html#method.edit_command_permissions
+
+Be aware that when the command is first established all Adminstrator users will have access to set commands via default permissions. Once a role is given a permission, there is a override event. Ensure that you give permission to an adminstrative role first as I'm not sure if adminstrators will have access.
 
 
 **Note**: Ideas for the DB structure are not yet completely figured out, personally I'm not very apt with SQL or Postgres so this will be under major remake once the rest of the bot is created.
@@ -97,6 +103,7 @@ Documents are BSON.
 * Optimized checks for roles to avoid unecessary API pings (hopefully the cache does this)
 * Figure out efficient means of adding image evidence to profile punishments without storing the data if possible.
 * Make a case for quarantined status flag (need to use events for that)
+* Add an info post on intialization of the log channel, that will be updated with time in the embed module if necessary.
 
 ### Depedencies
 
