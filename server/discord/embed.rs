@@ -17,7 +17,7 @@ pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), pr
 
     let memberembed = match &data.1 {
         Some(member) => {
-            footstring.push_str("\n(Member: ✅");     
+            footstring.push_str("\nMember: ✅");     
             let embed = basicembed.fields(vec![
                 ("Join Date", FormattedTimestamp::new(member.joined_at.unwrap_or_default(), Some(FormattedTimestampStyle::ShortDateTime)).to_string(), true),
                 ("Roles", member.roles
@@ -29,7 +29,7 @@ pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), pr
             embed
         },
         None => {
-            footstring.push_str("\n(Member: ❎");                   
+            footstring.push_str("\nMember: ❎");                   
             basicembed
         },
     };
@@ -38,28 +38,26 @@ pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), pr
         Some(punishment) => {
             match punishment {
                 PunishmentType::Ban => {
-                    footstring.push_str("  Ban: ✅  Mute: ❎  Timeout: ❎)");
+                    footstring.push_str("  -  Banned: ✅");
                     memberembed
                         .color(0xFF0000) //Red
                 }
                 PunishmentType::Mute => {
-                    footstring.push_str("  Ban: ❎  Mute: ✅  Timeout: ❎)");
+                    footstring.push_str("  -  Muted: ✅");
                     memberembed
                         .color(0xFF9900) //Orange
                 }
                 PunishmentType::Timeout => {
-                    footstring.push_str("  Ban: ❎  Mute: ❎  Timeout: ✅)");
+                    footstring.push_str("  -  Timeout: ✅");
                     memberembed
                         .color(0xFFE600) //Yellow
                 },
                 _ => {
-                    footstring.push_str("  Ban: ❎  Mute: ❎  Timeout: ❎)");                   
                     memberembed
                 }
             }
         },
         None => {
-            footstring.push_str("  Ban: ❎  Mute: ❎  Timeout: ❎)");                   
             memberembed
         }
     };
