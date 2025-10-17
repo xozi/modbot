@@ -3,21 +3,21 @@ use serenity::{
     model::{ Timestamp, guild::PartialMember, user::User}, 
     utils::{FormattedTimestamp, FormattedTimestampStyle}
 };
-use crate::db::Profile;
-
-pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), profile: Profile) -> CreateEmbed {
+use crate::{db::Profile, discord::commands::PunishmentType};
+//Add a active flag to Profile to allow for fetches to go for the last punishment and set active punishment.
+pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), profile: Profile, activePunishment: Option<PunishmentType>) -> CreateEmbed {
+    let mut footstring = format!("Moderator: {}", invodata.name);   
     let basicembed = CreateEmbed::default()
         .title(format!("User Profile"))
         .description(format!("<@{}>",data.0.id))
         //Color will never be there because it needs a HTTP RestAPI request
         .field( "Creation Date", FormattedTimestamp::new(data.0.created_at(), Some(FormattedTimestampStyle::ShortDateTime)).to_string(), true)
-        .footer(CreateEmbedFooter::new(format!("Requestor: {}", invodata.name))
-            .icon_url(invodata.avatar_url().unwrap_or_default()))
         .thumbnail(data.0.avatar_url().unwrap_or_default())            
         .timestamp(Timestamp::now());
 
     let memberembed = match &data.1 {
         Some(member) => {
+            footstring.push_str("\n(Member: ✅");     
             let embed = basicembed.fields(vec![
                 ("Join Date", FormattedTimestamp::new(member.joined_at.unwrap_or_default(), Some(FormattedTimestampStyle::ShortDateTime)).to_string(), true),
                 ("Roles", member.roles
@@ -28,7 +28,40 @@ pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), pr
             ]);
             embed
         },
-        None => basicembed,
+        None => {
+            footstring.push_str("\n(Member: ❎");                   
+            basicembed
+        },
+    };
+
+    let activeembed = match activePunishment {
+        Some(punishment) => {
+            match punishment {
+                PunishmentType::Ban => {
+                    footstring.push_str("  Ban: ✅  Mute: ❎  Timeout: ❎)");
+                    memberembed
+                        .color(0xFF0000) //Red
+                }
+                PunishmentType::Mute => {
+                    footstring.push_str("  Ban: ❎  Mute: ✅  Timeout: ❎)");
+                    memberembed
+                        .color(0xFF9900) //Orange
+                }
+                PunishmentType::Timeout => {
+                    footstring.push_str("  Ban: ❎  Mute: ❎  Timeout: ✅)");
+                    memberembed
+                        .color(0xFFE600) //Yellow
+                },
+                _ => {
+                    footstring.push_str("  Ban: ❎  Mute: ❎  Timeout: ❎)");                   
+                    memberembed
+                }
+            }
+        },
+        None => {
+            footstring.push_str("  Ban: ❎  Mute: ❎  Timeout: ❎)");                   
+            memberembed
+        }
     };
 
     let punishmentembed = if profile.punishments.len() > 0 {
@@ -47,9 +80,10 @@ pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), pr
                 record.moderator,
             ));
         }
-        memberembed.field("History", punishments, false)
+        activeembed.field("History", punishments, false)
     } else {
-        memberembed
+        activeembed
     };
-    punishmentembed
+    punishmentembed.footer(CreateEmbedFooter::new(footstring)
+        .icon_url(invodata.avatar_url().unwrap_or_default()))
 }

@@ -91,7 +91,7 @@ impl DBHandler {
                         if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
                             cmd.command.create_response(&ctx.http, CreateInteractionResponse::Message(  
                                 CreateInteractionResponseMessage::new()    
-                                    .embed(profembed(&cmd.invoker,&cmd.target, userprofile).await)
+                                    .embed(profembed(&cmd.invoker,&cmd.target, userprofile, None).await)
                                     .ephemeral(true)
                             )).await.expect("Failed to send response");
                         }                    
