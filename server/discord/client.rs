@@ -1,9 +1,10 @@
 use crate::{db::*, discord::commands::ModbotCmd, discord::commands::{CommandOptions, PunishmentType, PunishmentAction}};
 
 use serenity::{
-    all::{CommandInteraction, PartialMember, ResolvedValue, Role, User}, async_trait, builder::{CreateChannel, CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage}, futures::{io::empty, *}, model::{
-        application::{Command, CommandDataOption, CommandDataOptionValue, CommandOptionType, Interaction}, channel::*, guild, id::{ChannelId, CommandId, GuildId, UserId}, permissions::Permissions 
-    }, prelude::*
+    all::ResolvedValue, async_trait, 
+    builder::{CreateChannel, CreateInteractionResponse, CreateInteractionResponseMessage}, 
+    model::{application::Interaction, channel::*, id::GuildId, permissions::Permissions}, 
+    prelude::*
 };
 use tokio::sync::mpsc::Sender;
 pub struct ClientHandler {
@@ -117,7 +118,18 @@ impl EventHandler for ClientHandler {
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         if let Interaction::Command(command) = interaction {
-            let invoker = command.user.clone();
+            let targetguild = match command.guild_id {
+                Some(gid) => gid,
+                None => {
+                    command.create_response(&ctx.http, CreateInteractionResponse::Message(  
+                        CreateInteractionResponseMessage::new()    
+                            .content("These command can only be used in a server/guild.")
+                            .ephemeral(true)
+                    )).await.expect("Failed to send response");
+                    return;
+                }
+            };
+            let invoker = (command.user).clone();
             let mut opts = CommandOptions::default();
             // Parse every current option
             for opt in command.data.options() {
@@ -313,15 +325,16 @@ impl EventHandler for ClientHandler {
                         }
                     };
 
-                    match(opts.action) {
+                    match opts.action {
                         Some(PunishmentAction::Add) => {
                             if let Some(punishment) = opts.punishment {
                                 self.sender.send(DBRequest {
                                     request_type: DBRequestType::AddPunishment,
                                     command: (Some(UserCommand {
                                         command,
+                                        targetguild,
                                         target: (user, member),
-                                        invoker: invoker,
+                                        invoker,
                                         punishment: (Some(Punishment {
                                             ptype: punishment,
                                             reason: opts.reason,
@@ -340,8 +353,9 @@ impl EventHandler for ClientHandler {
                                     request_type: DBRequestType::RemovePunishment,
                                     command: (Some(UserCommand {
                                         command,
+                                        targetguild,
                                         target: (user, member),
-                                        invoker: invoker,
+                                        invoker,
                                         punishment: (None, Some(Adjust {
                                             reason: opts.reason,
                                             length,
@@ -360,8 +374,9 @@ impl EventHandler for ClientHandler {
                                     request_type: DBRequestType::EditPunishment,
                                     command: (Some(UserCommand {
                                         command,
+                                        targetguild,
                                         target: (user, member),
-                                        invoker: invoker,
+                                        invoker,
                                         punishment: (None, Some(Adjust {
                                             reason: opts.reason,
                                             length,
@@ -406,8 +421,9 @@ impl EventHandler for ClientHandler {
                         request_type: DBRequestType::FetchProfile,
                         command: (Some(UserCommand {
                             command,
+                            targetguild,
                             target: (user, member),
-                            invoker: invoker,
+                            invoker,
                             punishment: (None,None),
                         }), None),
                         context: Some(ctx),

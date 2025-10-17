@@ -88,26 +88,34 @@ impl DBHandler {
                 },
                 DBRequestType::FetchProfile => {
                     if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
-                        cmd.command.create_response(&ctx.http, CreateInteractionResponse::Message(  
-                            CreateInteractionResponseMessage::new()    
-                                .embed(profembed(&cmd.invoker,&cmd.target, &ctx.cache).await)
-                                .ephemeral(true)
-                        )).await.expect("Failed to send response");
+                        if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
+                            cmd.command.create_response(&ctx.http, CreateInteractionResponse::Message(  
+                                CreateInteractionResponseMessage::new()    
+                                    .embed(profembed(&cmd.invoker,&cmd.target, userprofile).await)
+                                    .ephemeral(true)
+                            )).await.expect("Failed to send response");
+                        }                    
                     }
                 },
                 DBRequestType::AddPunishment => {
                     if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
-                        //let userprofile = self.get_profile(cmd.target.0.id.get() as i64, cmd.target.1.guild_id).await;
+                        if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
+
+                        }                    
                     }
                 },
                 DBRequestType::RemovePunishment => {
                     if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
-                        
+                        if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
+
+                        }                    
                     }
                 },
                 DBRequestType::EditPunishment => {
                     if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
-                        
+                        if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
+
+                        }                    
                     }
                 },
                 DBRequestType::TemporaryComplete => {
@@ -115,7 +123,9 @@ impl DBHandler {
                 },
                 DBRequestType::CommandPermissionUpdate => {
                     if let ((_,Some(cmd)), Some(ctx)) = (request.command, request.context) {
-                        
+                        if let Some(roleperm) = self.get_roleperm(cmd.target.id.get() as i64, &cmd.targetguild).await {
+
+                        }
                     }
                 }
             }
@@ -194,12 +204,14 @@ pub struct DBRequest {
 
 pub struct UserCommand{
     pub command: CommandInteraction,
+    pub targetguild: GuildId,
     pub target: (User, Option<PartialMember>),
     pub invoker: User,
     pub punishment: (Option<Punishment>,Option<Adjust>),
 }
 pub struct RoleCommand{
     pub command: CommandInteraction,
+    pub targetguild: GuildId,
     pub target: Role,
     pub invoker: User,
     pub allow: bool,
@@ -229,10 +241,18 @@ Maybe consider keeping struct elements of the embed for easy recreation?
 
 #[derive(Debug, Serialize, Deserialize)]
 // We will need to convert UserId to i64 for BSON queries
-struct Profile {
+pub struct Profile {
     user_id: i64,
-    punishments: BTreeMap<i64,Punishment>,
+    pub punishments: BTreeMap<i64,PunishmentRecord>, //id, Record
     negdur: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PunishmentRecord {
+    pub punishment: PunishmentType,
+    pub reason: Option<String>,
+    pub punished_for: (Timestamp,Timestamp), //Start, End
+    pub moderator: i64,
 }
 
 impl Profile {

@@ -65,7 +65,7 @@ The main component (main.rs in the Server folder) is intialization. Serenity uti
 </pre>
 
 ### Profile 
-Profiles are embed messages with details about the user. The /fetchprofile command will foward the most recent profile from the #modbot-log channel, which will hold all profiles on punished users. 
+Profiles are embed messages with details about the user. The /fetchprofile command will generate a profile with records over the user and is dynamically updated. The profile present in #modbot-log will be more static in nature and only will be updated when a punishment is commited. The log exists for adminstrators to monitor recent punishments and keep track of moderation actions.
 
 Flags: Quick information to check against for active punishment should be added. This includes ban, mute, timeout, in server, or quarantine. (more to be added).
 
@@ -94,12 +94,10 @@ Documents are BSON.
 
 ### Update Ideas
 
-* Index order to be the unix time of their punishment in ASC order, with an ! bitewise inversion profile table (more recent punishments at the top). (PoloDB only does ASC for some reason)
 * When a /punish command is sent a ghost ping is sent to the exact log page that is updated for the moderator.
-* Updates to profiles if done should be on a queue through the day, this will be addressed further in future.
 * Admin only /reverse command that helps reverse past punishments for trial mods (security), also limit ban outside their range. Integrated rate limit for trial mods. (Only consider this if necessary)
 * Optimized checks for roles to avoid unecessary API pings (hopefully the cache does this)
-* Consideration should be had regarding Profile storage, store them in a way that's easily recreatable or the whole embed. It should be easily modifiable.
+* Figure out efficient means of adding image evidence to profile punishments without storing the data if possible.
 
 ### Depedencies
 
