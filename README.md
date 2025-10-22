@@ -8,8 +8,8 @@ The main component (main.rs in the Server folder) is intialization. Serenity uti
 
 ### ClientHandler
 
- On cache ready state, the client handler will search all guilds for Adminstrator priveleges, then in guilds it holds these priveleges it will either generate or grab the current #modbot-logs channel for profile maintaince and creation. It should be a task on generation to update these or make a regular (maybe paced) pattern to update these profiles as long as Flags for not being in the server or banned are not set. 
- 
+ On cache ready state, the client handler will search all guilds for Adminstrator priveleges, then in guilds it holds these priveleges it will either generate or grab the current #modbot-logs channel for profile maintaince and creation. It should be a task on generation to update these or make a regular (maybe paced) pattern to update these profiles as long as Flags for not being in the server or banned are not set.
+
  The client handler will have a intialized DB_Handler, which will be described later but it mainly it maintains the Connecton to the the postgres database, sending and recieving data. The handler should also generate a log channel if there isn't one and synchronize profiles in that log channel. It'll be important in maintaining temporary punishments, and if disconnections occur it should be dropped and immediately re-generated on cache_ready.
 
 ### Commands
@@ -64,8 +64,10 @@ The main component (main.rs in the Server folder) is intialization. Serenity uti
     ├── allow (Boolean | REQUIRED)
 </pre>
 
-### Profile 
+### Profile
 Profiles are embed messages with details about the user. The /fetchprofile command will generate a profile with records over the user and is dynamically updated. The profile present in #modbot-log will be more static in nature and only will be updated when a punishment is commited. The log exists for adminstrators to monitor recent punishments and keep track of moderation actions.
+
+Threads will have to be immediately archived so that the Modbot can scan for them for future updates. Be aware if this wasn't the case I'd need to scan every active thread in the whole guild.
 
 ### Punishment
 The /punish command will be utilized to add, remove or edit a punishment on a user.
@@ -82,9 +84,6 @@ It can be proactively updated, avoiding the need of restart:
 https://docs.rs/serenity/latest/serenity/model/id/struct.GuildId.html#method.edit_command_permissions
 
 Be aware that when the command is first established all Adminstrator users will have access to set commands via default permissions. Once a role is given a permission, there is a override event. Ensure that you give permission to an adminstrative role first as I'm not sure if adminstrators will have access.
-
-
-**Note**: Ideas for the DB structure are not yet completely figured out, personally I'm not very apt with SQL or Postgres so this will be under major remake once the rest of the bot is created.
 
 ### Database Structure
 
@@ -103,7 +102,7 @@ Documents are BSON.
 * Optimized checks for roles to avoid unecessary API pings (hopefully the cache does this)
 * Figure out efficient means of adding image evidence to profile punishments without storing the data if possible.
 * Make a case for quarantined status flag (need to use events for that)
-* Add an info post on intialization of the log channel, that will be updated with time in the embed module if necessary.
+* Add an info post on intialization of the log channel, that will be updated with time in the embed module if necessary. Establish the Muted role that iterates over chanel and makes sure it cannot see, post, or enter any channel
 
 ### Depedencies
 

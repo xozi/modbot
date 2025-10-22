@@ -1,15 +1,13 @@
-use polodb_core::{
-    bson::doc, options, CollectionT, Database, IndexModel, IndexOptions
-};
-use crate::discord::{embed::profembed,commands::PunishmentType};
-use tokio::sync::mpsc::Receiver;
-use serde::{Serialize, Deserialize};
+use crate::discord::{commands::PunishmentType, embed::profembed};
+use polodb_core::{CollectionT, Database, IndexModel, IndexOptions, bson::doc, options};
+use serde::{Deserialize, Serialize};
 use serenity::{
-    all::{CommandDataOption, CommandInteraction, User, ResolvedValue, Role, PartialMember}, 
-    builder::{CreateInteractionResponse, CreateInteractionResponseMessage}, 
-    model::{ channel:: GuildChannel, id::GuildId, Timestamp}
+    all::{CommandDataOption, CommandInteraction, PartialMember, ResolvedValue, Role, User},
+    builder::{CreateInteractionResponse, CreateInteractionResponseMessage},
+    model::{Timestamp, channel::GuildChannel, id::GuildId},
 };
 use std::collections::{BTreeMap, BTreeSet};
+use tokio::sync::mpsc::Receiver;
 
 pub struct DBHandler {
     database: BTreeMap<GuildId, GuildDB>,
@@ -34,14 +32,14 @@ impl DBHandler {
                     if let Some(context) = request.context {
                         self.context = Some(context);
                     }
-                },
+                }
                 DBRequestType::Build => {
                     if let Some((channel, guild)) = request.guildlog {
                         self.guildlog.insert(guild, channel);
-                        
+
                         if let Err(e) = std::fs::create_dir_all("server/databases") {
                             eprintln!("Failed to create database folder: {}", e);
-                            continue; 
+                            continue;
                         }
 
                         let db_path = format!("server/databases/{}.db", guild);
@@ -51,81 +49,111 @@ impl DBHandler {
                                 let profilecol = db.collection::<Profile>("Profile");
                                 let tempcol = db.collection::<Temporary>("Temporary");
                                 let rolecol = db.collection::<RolePermission>("RolePermission");
-                                
+
                                 // Store with Bitwise ! duration to get the most recent punishment at the top
                                 // ASC is the only working order (1)
                                 if let Err(e) = profilecol.create_index(IndexModel {
-                                    keys: doc!{ 
+                                    keys: doc! {
                                         "negdur": 1,
                                     },
                                     options: None,
                                 }) {
-                                    eprintln!("Failed to create index for Profile collection in guild {}: {}", guild, e);
+                                    eprintln!(
+                                        "Failed to create index for Profile collection in guild {}: {}",
+                                        guild, e
+                                    );
                                 }
 
                                 if let Err(e) = tempcol.create_index(IndexModel {
-                                    keys: doc!{ 
+                                    keys: doc! {
                                         "negdur": 1,
                                     },
                                     options: None,
                                 }) {
-                                    eprintln!("Failed to create index for Temporary collection in guild {}: {}", guild, e);
+                                    eprintln!(
+                                        "Failed to create index for Temporary collection in guild {}: {}",
+                                        guild, e
+                                    );
                                 }
-                                
-                                self.database.insert(guild, 
+
+                                self.database.insert(
+                                    guild,
                                     GuildDB {
-                                    db,
-                                    profilecol,
-                                    tempcol,
-                                    rolecol
-                                });
+                                        db,
+                                        profilecol,
+                                        tempcol,
+                                        rolecol,
+                                    },
+                                );
                             }
                             Err(e) => {
-                                eprintln!("Failed to initialize database for guild {}: {}", guild, e);
+                                eprintln!(
+                                    "Failed to initialize database for guild {}: {}",
+                                    guild, e
+                                );
                             }
                         }
                     }
-                },
+                }
                 DBRequestType::FetchProfile => {
-                    if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
-                        if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
-                            cmd.command.create_response(&ctx.http, CreateInteractionResponse::Message(  
-                                CreateInteractionResponseMessage::new()    
-                                    .embed(profembed(&cmd.invoker,&cmd.target, userprofile, None).await)
-                                    .ephemeral(true)
-                            )).await.expect("Failed to send response");
-                        }                    
-                    }
-                },
-                DBRequestType::AddPunishment => {
-                    if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
-                        if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
-
-                        }                    
-                    }
-                },
-                DBRequestType::RemovePunishment => {
-                    if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
-                        if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
-
-                        }                    
-                    }
-                },
-                DBRequestType::EditPunishment => {
-                    if let ((Some(cmd),_), Some(ctx)) = (request.command, request.context) {
-                        if let Some(userprofile) = self.get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild).await {
-
-                        }                    
-                    }
-                },
-                DBRequestType::TemporaryComplete => {
-                    
-                },
-                DBRequestType::CommandPermissionUpdate => {
-                    if let ((_,Some(cmd)), Some(ctx)) = (request.command, request.context) {
-                        if let Some(roleperm) = self.get_roleperm(cmd.target.id.get() as i64, &cmd.targetguild).await {
-
+                    if let ((Some(cmd), _), Some(ctx)) = (request.command, request.context) {
+                        if let Some(userprofile) = self
+                            .get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild)
+                            .await
+                        {
+                            cmd.command
+                                .create_response(
+                                    &ctx.http,
+                                    CreateInteractionResponse::Message(
+                                        CreateInteractionResponseMessage::new()
+                                            .embed(
+                                                profembed(
+                                                    &cmd.invoker,
+                                                    &cmd.target,
+                                                    userprofile,
+                                                    None,
+                                                )
+                                                .await,
+                                            )
+                                            .ephemeral(true),
+                                    ),
+                                )
+                                .await
+                                .expect("Failed to send response");
                         }
+                    }
+                }
+                DBRequestType::AddPunishment => {
+                    if let ((Some(cmd), _), Some(ctx)) = (request.command, request.context) {
+                        if let Some(userprofile) = self
+                            .get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild)
+                            .await
+                        {}
+                    }
+                }
+                DBRequestType::RemovePunishment => {
+                    if let ((Some(cmd), _), Some(ctx)) = (request.command, request.context) {
+                        if let Some(userprofile) = self
+                            .get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild)
+                            .await
+                        {}
+                    }
+                }
+                DBRequestType::EditPunishment => {
+                    if let ((Some(cmd), _), Some(ctx)) = (request.command, request.context) {
+                        if let Some(userprofile) = self
+                            .get_profile(cmd.target.0.id.get() as i64, &cmd.targetguild)
+                            .await
+                        {}
+                    }
+                }
+                DBRequestType::TemporaryComplete => {}
+                DBRequestType::CommandPermissionUpdate => {
+                    if let ((_, Some(cmd)), Some(ctx)) = (request.command, request.context) {
+                        if let Some(roleperm) = self
+                            .get_roleperm(cmd.target.id.get() as i64, &cmd.targetguild)
+                            .await
+                        {}
                     }
                 }
             }
@@ -142,7 +170,7 @@ impl DBHandler {
                         return None;
                     }
                     return Some(Profile::new(userid));
-                },
+                }
                 Err(e) => {
                     eprintln!("Error retrieving profile in Profile Query: {}", e);
                     return None;
@@ -164,7 +192,7 @@ impl DBHandler {
                         return None;
                     }
                     return Some(RolePermission::new(roleid));
-                },
+                }
                 Err(e) => {
                     eprintln!("Error retrieving role in Role Query: {}", e);
                     return None;
@@ -174,7 +202,7 @@ impl DBHandler {
             eprintln!("No database found for queried guild in Role Query");
         }
         return None;
-    } 
+    }
 }
 
 pub enum DBRequestType {
@@ -202,14 +230,14 @@ pub struct DBRequest {
     pub guildlog: Option<(GuildChannel, GuildId)>,
 }
 
-pub struct UserCommand{
+pub struct UserCommand {
     pub command: CommandInteraction,
     pub targetguild: GuildId,
     pub target: (User, Option<PartialMember>),
     pub invoker: User,
-    pub punishment: (Option<Punishment>,Option<Adjust>),
+    pub punishment: (Option<Punishment>, Option<Adjust>),
 }
-pub struct RoleCommand{
+pub struct RoleCommand {
     pub command: CommandInteraction,
     pub targetguild: GuildId,
     pub target: Role,
@@ -233,17 +261,17 @@ impl RolePermission {
 }
 
 /*
-The embed will have the details for the profile, 
-a member query should be done if possible. Separate information that 
+The embed will have the details for the profile,
+a member query should be done if possible. Separate information that
 is not able to be retried from the member API request.
 Maybe consider keeping struct elements of the embed for easy recreation?
-*/ 
+*/
 
 #[derive(Debug, Serialize, Deserialize)]
 // We will need to convert UserId to i64 for BSON queries
 pub struct Profile {
     user_id: i64,
-    pub punishments: BTreeMap<i64,PunishmentRecord>, //id, Record
+    pub punishments: BTreeMap<i64, PunishmentRecord>, //id, Record
     negdur: i64,
 }
 
@@ -251,7 +279,7 @@ pub struct Profile {
 pub struct PunishmentRecord {
     pub punishment: PunishmentType,
     pub reason: Option<String>,
-    pub punished_for: (Timestamp,Timestamp), //Start, End
+    pub punished_for: (Timestamp, Timestamp), //Start, End
     pub moderator: i64,
 }
 
@@ -281,7 +309,6 @@ impl Temporary {
         }
     }
 }
- 
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Punishment {
