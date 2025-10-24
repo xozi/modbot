@@ -6,6 +6,7 @@ use serenity::{
 };
 use async_recursion::async_recursion;
 
+//Rate limit the async recursion with a value.
 #[async_recursion]
 pub async fn recarch_thread_search<'a>(log_channel: &'a GuildChannel, ctx: &'a Context, threadname: String, mut timestamp: Option<u64>) -> Result<Option<GuildChannel>, SerenityError> {
     let thread_data = log_channel.id
@@ -28,7 +29,6 @@ pub async fn recarch_thread_search<'a>(log_channel: &'a GuildChannel, ctx: &'a C
                         .cloned());
     } 
     Ok(None)
-
 }
 
 pub async fn active_thread_search(guild: &GuildId,ctx: &Context,threadname: String,) -> Result<Option<GuildChannel>, SerenityError> {

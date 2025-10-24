@@ -102,7 +102,10 @@ Documents are BSON.
 * Optimized checks for roles to avoid unecessary API pings (hopefully the cache does this)
 * Figure out efficient means of adding image evidence to profile punishments without storing the data if possible.
 * Make a case for quarantined status flag (need to use events for that)
-* Add an info post on intialization of the log channel, that will be updated with time in the embed module if necessary. Establish the Muted role that iterates over chanel and makes sure it cannot see, post, or enter any channel
+* Establish the Muted role that iterates over chanel and makes sure it cannot see, post, or enter any channel
+* Add cleanup functions that can cleanup user messages like default ban behavior
+* Consider extension methods for profiles if they have too much punishments. Possibly an async recursion that occurs after the first post. Might need a means to easily clean thread and add this information.
+
 
 ### Depedencies
 

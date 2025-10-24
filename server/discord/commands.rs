@@ -12,7 +12,7 @@ pub enum ModbotCmd {
 }
 
 //Reference of all values known in commands
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct CommandOptions {
     pub user: Option<User>,
     pub member: Option<PartialMember>,
@@ -21,13 +21,13 @@ pub struct CommandOptions {
     pub allow: Option<bool>,
     pub duration: Option<i64>,
     pub units: Option<String>,
-    pub id: Option<i64>,
+    pub id: Option<String>,
     pub latest: Option<bool>,
     pub punishment: Option<PunishmentType>,
     pub action: Option<PunishmentAction>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PunishmentType {
     Warn,
     Mute,
@@ -35,7 +35,6 @@ pub enum PunishmentType {
     Timeout,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
 pub enum PunishmentAction {
     Add,
     Remove,
@@ -187,7 +186,7 @@ impl ModbotCmd {
                                 .required(true)
                                 .set_autocomplete(true)) 
                             .add_sub_option(CreateCommandOption::new(
-                                CommandOptionType::Integer,
+                                CommandOptionType::String,
                                 "id",
                                 "The ID of the punishment to remove")
                                 .min_int_value(1)) 
@@ -208,7 +207,7 @@ impl ModbotCmd {
                             .required(true)
                             .set_autocomplete(true))   
                         .add_sub_option(CreateCommandOption::new(
-                            CommandOptionType::Integer,
+                            CommandOptionType::String,
                             "id",
                             "The ID of the punishment to edit")
                             .min_int_value(1)) 

@@ -77,11 +77,11 @@ impl ClientHandler {
         }
     }
 
-    fn millis(unit: &str, period: u64) -> Option<u64> {
+    fn millis(unit: &str, period: i64) -> Option<i64> {
         match unit {
-            "M" => Some(period * 1000 * 60),
-            "H" => Some(period * 1000 * 60 * 60),
-            "D" => Some(period * 1000 * 60 * 60 * 24),
+            "M" => Some(period.abs() * 1000 * 60),
+            "H" => Some(period.abs() * 1000 * 60 * 60),
+            "D" => Some(period.abs() * 1000 * 60 * 60 * 24),
             _ => None,
         }
     }
@@ -94,7 +94,7 @@ impl EventHandler for ClientHandler {
             .sender
             .send(DBRequest {
                 request_type: DBRequestType::GiveContext,
-                command: (None, None),
+                command: None,
                 context: Some(ctx.clone()),
                 guildlog: None,
             })
@@ -112,9 +112,9 @@ impl EventHandler for ClientHandler {
                                 .sender
                                 .send(DBRequest {
                                     request_type: DBRequestType::Build,
-                                    command: (None, None),
+                                    command: None,
                                     context: None,
-                                    guildlog: Some((log, guild)),
+                                    guildlog: Some((log.id, guild)),
                                 })
                                 .await
                             {
@@ -316,8 +316,8 @@ impl EventHandler for ClientHandler {
                     ("reason", ResolvedValue::String(r)) => {
                         opts.reason = Some((*r).to_string());
                     }
-                    ("id", ResolvedValue::Integer(i)) => {
-                        opts.id = Some(*i);
+                    ("id", ResolvedValue::String(i)) => {
+                        opts.id = Some((*i).to_string());
                     }
                     ("latest", ResolvedValue::Boolean(l)) => {
                         opts.latest = Some(*l);
@@ -329,7 +329,7 @@ impl EventHandler for ClientHandler {
                 }
             }
             match command.data.name.as_str() {
-                "punishment" => {
+                "punish" => {
                     let (user, member) = match (opts.user, opts.member) {
                         (Some(u), Some(m)) => (u, Some(m)),
                         (Some(u), None) => (u, None),
@@ -351,7 +351,7 @@ impl EventHandler for ClientHandler {
 
                     let length = match (opts.duration, opts.units) {
                         (Some(duration), Some(units)) => {
-                            ClientHandler::millis(&units, duration as u64)
+                            ClientHandler::millis(&units, duration)
                         }
                         (Some(_), None) => {
                             command
@@ -389,24 +389,16 @@ impl EventHandler for ClientHandler {
                             if let Some(punishment) = opts.punishment {
                                 self.sender
                                     .send(DBRequest {
-                                        request_type: DBRequestType::AddPunishment,
-                                        command: (
-                                            Some(UserCommand {
-                                                command,
-                                                targetguild,
-                                                target: (user, member),
-                                                invoker,
-                                                punishment: (
-                                                    Some(Punishment {
-                                                        ptype: punishment,
-                                                        reason: opts.reason,
-                                                        length,
-                                                    }),
-                                                    None,
-                                                ),
-                                            }),
-                                            None,
-                                        ),
+                                        request_type: DBRequestType::Punishment,
+                                        command: Some(Command::PunishAdd {
+                                            command,
+                                            targetguild,
+                                            target: (user, member),
+                                            invoker,
+                                            ptype: punishment,
+                                            reason: opts.reason,
+                                            length,
+                                        }),
                                         context: Some(ctx),
                                         guildlog: None,
                                     })
@@ -419,25 +411,15 @@ impl EventHandler for ClientHandler {
                         Some(PunishmentAction::Remove) => {
                             self.sender
                                 .send(DBRequest {
-                                    request_type: DBRequestType::RemovePunishment,
-                                    command: (
-                                        Some(UserCommand {
-                                            command,
-                                            targetguild,
-                                            target: (user, member),
-                                            invoker,
-                                            punishment: (
-                                                None,
-                                                Some(Adjust {
-                                                    reason: opts.reason,
-                                                    length,
-                                                    latest: opts.latest,
-                                                    id: opts.id,
-                                                }),
-                                            ),
-                                        }),
-                                        None,
-                                    ),
+                                    request_type: DBRequestType::Punishment,
+                                    command: Some(Command::PunishRemove {
+                                        command,
+                                        targetguild,
+                                        target: (user, member),
+                                        invoker,
+                                        latest: opts.latest,
+                                        id: opts.id,
+                                    }),
                                     context: Some(ctx),
                                     guildlog: None,
                                 })
@@ -449,24 +431,18 @@ impl EventHandler for ClientHandler {
                         Some(PunishmentAction::Edit) => {
                             self.sender
                                 .send(DBRequest {
-                                    request_type: DBRequestType::EditPunishment,
+                                    request_type: DBRequestType::Punishment,
                                     command: (
-                                        Some(UserCommand {
+                                        Some(Command::PunishEdit {
                                             command,
                                             targetguild,
                                             target: (user, member),
                                             invoker,
-                                            punishment: (
-                                                None,
-                                                Some(Adjust {
-                                                    reason: opts.reason,
-                                                    length,
-                                                    latest: opts.latest,
-                                                    id: opts.id,
-                                                }),
-                                            ),
-                                        }),
-                                        None,
+                                            reason: opts.reason,
+                                            length,
+                                            latest: opts.latest,
+                                            id: opts.id,
+                                        })
                                     ),
                                     context: Some(ctx),
                                     guildlog: None,
@@ -515,14 +491,12 @@ impl EventHandler for ClientHandler {
                         .send(DBRequest {
                             request_type: DBRequestType::FetchProfile,
                             command: (
-                                Some(UserCommand {
-                                    command,
-                                    targetguild,
-                                    target: (user, member),
-                                    invoker,
-                                    punishment: (None, None),
-                                }),
-                                None,
+                                Some(Command::FetchProfile { 
+                                    command, 
+                                    targetguild, 
+                                    target: (user,member), 
+                                    invoker
+                                })
                             ),
                             context: Some(ctx),
                             guildlog: None,
