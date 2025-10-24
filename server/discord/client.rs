@@ -190,6 +190,9 @@ impl EventHandler for ClientHandler {
                     ("role", ResolvedValue::Role(r)) => {
                         opts.role = Some((**r).clone());
                     }
+                    ("allow", ResolvedValue::Boolean(a)) => {
+                        opts.allow = Some(*a);
+                    }
                     ("add", ResolvedValue::SubCommandGroup { .. }) => {
                         opts.action = Some(PunishmentAction::Add);
                         if let ResolvedValue::SubCommandGroup(options) = &opt.value {
@@ -303,27 +306,56 @@ impl EventHandler for ClientHandler {
                     }
                     ("remove", ResolvedValue::SubCommand { .. }) => {
                         opts.action = Some(PunishmentAction::Remove);
+                        if let ResolvedValue::SubCommand(options) = &opt.value {
+                            for subopt in options {
+                                match (subopt.name, &subopt.value) {
+                                    ("user", ResolvedValue::User(u, m)) => {
+                                        if let Some(m) = m {
+                                            opts.member = Some((**m).clone());
+                                        }
+                                        opts.user = Some((**u).clone());
+                                    }
+                                    ("latest", ResolvedValue::Boolean(l)) => {
+                                        opts.latest = Some(*l);
+                                    }
+                                    ("id", ResolvedValue::String(i)) => {
+                                        opts.id = Some((*i).to_string());
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                     }
                     ("edit", ResolvedValue::SubCommand { .. }) => {
                         opts.action = Some(PunishmentAction::Edit);
-                    }
-                    ("duration", ResolvedValue::Integer(d)) => {
-                        opts.duration = Some(*d);
-                    }
-                    ("units", ResolvedValue::String(u)) => {
-                        opts.units = Some((*u).to_string());
-                    }
-                    ("reason", ResolvedValue::String(r)) => {
-                        opts.reason = Some((*r).to_string());
-                    }
-                    ("id", ResolvedValue::String(i)) => {
-                        opts.id = Some((*i).to_string());
-                    }
-                    ("latest", ResolvedValue::Boolean(l)) => {
-                        opts.latest = Some(*l);
-                    }
-                    ("allow", ResolvedValue::Boolean(a)) => {
-                        opts.allow = Some(*a);
+                        if let ResolvedValue::SubCommand(options) = &opt.value {
+                            for subopt in options {
+                                match (subopt.name, &subopt.value) {
+                                    ("user", ResolvedValue::User(u, m)) => {
+                                        if let Some(m) = m {
+                                            opts.member = Some((**m).clone());
+                                        }
+                                        opts.user = Some((**u).clone());
+                                    }
+                                    ("latest", ResolvedValue::Boolean(l)) => {
+                                        opts.latest = Some(*l);
+                                    }
+                                    ("id", ResolvedValue::String(i)) => {
+                                        opts.id = Some((*i).to_string());
+                                    }
+                                    ("duration", ResolvedValue::Integer(d)) => {
+                                        opts.duration = Some(*d);
+                                    }
+                                    ("units", ResolvedValue::String(u)) => {
+                                        opts.units = Some((*u).to_string());
+                                    }
+                                    ("reason", ResolvedValue::String(r)) => {
+                                        opts.reason = Some((*r).to_string());
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                     }
                     _ => {}
                 }
