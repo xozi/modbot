@@ -19,8 +19,7 @@ pub struct CommandOptions {
     pub role: Option<Role>,
     pub reason: Option<String>,
     pub allow: Option<bool>,
-    pub duration: Option<i64>,
-    pub units: Option<String>,
+    pub duration: Option<String>,
     pub id: Option<String>,
     pub latest: Option<bool>,
     pub punishment: Option<PunishmentType>,
@@ -79,25 +78,16 @@ impl ModbotCmd {
                                 .required(true)
                                 .set_autocomplete(true))
                             .add_sub_option(CreateCommandOption::new(
-                                CommandOptionType::Integer,
-                                "duration",
-                                "Duration of punishment")
-                                .min_int_value(1)
-                                .max_int_value(999)
-                                .required(true))
-                            .add_sub_option(CreateCommandOption::new(
                                 CommandOptionType::String,
-                                "units",
-                                "Units for duration") 
-                                .add_string_choice("minute(s)", "M")
-                                .add_string_choice("hour(s)", "H")
-                                .add_string_choice("day(s)", "D")
-                                .required(true))
+                                "duration",
+                                "Duration of punishment (i.e. 10m, 5h, 2d)")
+                                .required(true)
+                            )
                             .add_sub_option(CreateCommandOption::new(
                                 CommandOptionType::String,
                                 "reason",
                                 "Reason for timeout") 
-                                .max_length(1000))
+                                .max_length(512))
                         )
                         .add_sub_option(CreateCommandOption::new(
                             CommandOptionType::SubCommand,
@@ -113,7 +103,7 @@ impl ModbotCmd {
                                 CommandOptionType::String,
                                 "reason",
                                 "Reason for warn") 
-                                .max_length(1000))
+                                .max_length(512))
                         )
                         .add_sub_option(CreateCommandOption::new(
                             CommandOptionType::SubCommand,
@@ -126,23 +116,16 @@ impl ModbotCmd {
                                 .required(true)
                                 .set_autocomplete(true))
                             .add_sub_option(CreateCommandOption::new(
-                                CommandOptionType::Integer,
-                                "duration",
-                                "Duration of punishment")
-                                .min_int_value(1)
-                                .max_int_value(999))
-                            .add_sub_option(CreateCommandOption::new(
                                 CommandOptionType::String,
-                                "units",
-                                "Units for duration") 
-                                .add_string_choice("minute(s)", "M")
-                                .add_string_choice("hour(s)", "H")
-                                .add_string_choice("day(s)", "D"))
+                                "duration",
+                                "Duration of punishment (i.e. 10m, 5h, 2d)")
+                                .required(true)
+                            )
                             .add_sub_option(CreateCommandOption::new(
                                 CommandOptionType::String,
                                 "reason",
                                 "Reason for punishment") 
-                                .max_length(1000))
+                                .max_length(512))
                         )
                         .add_sub_option(CreateCommandOption::new(
                             CommandOptionType::SubCommand,
@@ -155,23 +138,15 @@ impl ModbotCmd {
                                 .required(true)
                                 .set_autocomplete(true)) 
                             .add_sub_option(CreateCommandOption::new(
-                                CommandOptionType::Integer,
-                                "duration",
-                                "Duration of punishment")
-                                .min_int_value(1)
-                                .max_int_value(999))
-                            .add_sub_option(CreateCommandOption::new(
                                 CommandOptionType::String,
-                                "units",
-                                "Units for duration") 
-                                .add_string_choice("minute(s)", "M")
-                                .add_string_choice("hour(s)", "H")
-                                .add_string_choice("day(s)", "D"))
+                                "duration",
+                                "Duration of punishment (i.e. 10m, 5h, 2d)")
+                            )
                             .add_sub_option(CreateCommandOption::new(
                                 CommandOptionType::String,
                                 "reason",
                                 "Reason for punishment") 
-                                .max_length(1000))
+                                .max_length(512))
                             )
                         )
                     // Remove
@@ -219,20 +194,12 @@ impl ModbotCmd {
                             CommandOptionType::String,
                             "reason",
                             "Update the reason for a punishment")
-                            .max_length(1000))
-                        .add_sub_option(CreateCommandOption::new(
-                            CommandOptionType::Integer,
-                            "duration",
-                            "Update the duration of punishment")
-                            .min_int_value(1)
-                            .max_int_value(999))
+                            .max_length(512))
                         .add_sub_option(CreateCommandOption::new(
                             CommandOptionType::String,
-                            "units",
-                            "units for duration") 
-                            .add_string_choice("minutes", "M")
-                            .add_string_choice("hours", "H")
-                            .add_string_choice("days", "D"))
+                            "duration",
+                            "Duration of punishment (i.e. 10m, 5h, 2d)")
+                        )
                     ),
             ModbotCmd::RoleSet => 
                 CreateCommand::new("roleset")

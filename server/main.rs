@@ -19,10 +19,10 @@ async fn main() {
     | GatewayIntents::AUTO_MODERATION_EXECUTION;
 
     let (sender, receiver) = tokio::sync::mpsc::channel(100);
-    let chandle = ClientHandler::new(sender);
+    let chandle = ClientHandler::new(sender.clone());
     
     tokio::spawn(async move {
-        let mut dbconnection = db::DBHandler::new(receiver);
+        let mut dbconnection = db::DBHandler::new(receiver, sender);
         dbconnection.process_requests().await;
     });
 

@@ -1,5 +1,3 @@
-use core::arch;
-
 use crate::{
     db::*,
     discord::commands::ModbotCmd,
@@ -12,7 +10,7 @@ use serenity::{
         CreateEmbed, CreateForumPost,CreateMessage, EditThread, ResolvedValue
     },
     async_trait,
-    builder::{CreateChannel, CreateInteractionResponse, CreateInteractionResponseMessage},
+    builder::{CreateChannel, CreateInteractionResponse, CreateInteractionResponseMessage, EditRole},
     model::{application::Interaction, channel::*, id::GuildId, permissions::Permissions},
     prelude::*,
 };
@@ -22,6 +20,7 @@ pub struct ClientHandler {
     sender: Sender<DBRequest>,
 }
 
+use regex::Regex;
 
 
 impl ClientHandler {
@@ -64,6 +63,52 @@ impl ClientHandler {
         }
     }
 
+    async fn create_punishment_notifer(ctx: &Context, guild: GuildId) -> Result<GuildChannel, SerenityError> {
+        let gch = guild.channels(&ctx.http).await?;
+        if let Some(channel) = gch.values().find(|channel| channel.name == "punishment-notifications") {
+            Ok(channel.clone())
+        } else {
+            let notifybuilder = CreateChannel::new("punishment-notifications")
+                .kind(ChannelType::Forum)
+                .topic("Active punishment notifications for users")
+                .permissions(vec![PermissionOverwrite {
+                    allow: Permissions::empty(),
+                    deny: Permissions::VIEW_CHANNEL
+                        | Permissions::SEND_MESSAGES
+                        | Permissions::READ_MESSAGE_HISTORY,
+                    kind: PermissionOverwriteType::Role(guild.everyone_role()),
+                }]);
+            let channel = guild.create_channel(&ctx.http, notifybuilder).await?;
+            println!("Created mod-notifications channel: {}", channel.id);
+            Ok(channel.clone())
+        }
+    }
+
+    async fn role_add(ctx: &Context, guild: GuildId, channels: &Vec<&GuildChannel>, deny: Permissions, rolename: &str) -> Result<(), SerenityError> {
+        if let Some(role) = guild.roles(&ctx.http).await?.values().find(|role| role.name == rolename) {
+            for channel in channels {
+                let _ = channel.create_permission(&ctx.http, PermissionOverwrite {
+                    allow: Permissions::empty(),
+                    deny,
+                    kind: PermissionOverwriteType::Role(role.id),
+                }).await;
+            }
+        } else {
+            let newrole = guild.create_role(&ctx.http, EditRole::new()
+                .name(rolename)
+                .mentionable(false)
+            ).await?;
+            for channel in channels {
+                channel.create_permission(&ctx.http, PermissionOverwrite {
+                    allow: Permissions::empty(),
+                    deny,
+                    kind: PermissionOverwriteType::Role(newrole.id),
+                }).await?;
+            }
+        }
+        Ok(())
+    } 
+
     async fn permission_check(ctx: &Context, guild: GuildId) -> Result<bool, SerenityError> {
         let bot_id = ctx.cache.current_user().id;
         let member = guild.member(&ctx.http, bot_id).await?;
@@ -77,12 +122,32 @@ impl ClientHandler {
         }
     }
 
-    fn millis(unit: &str, period: i64) -> Option<i64> {
-        match unit {
-            "M" => Some(period.abs() * 1000 * 60),
-            "H" => Some(period.abs() * 1000 * 60 * 60),
-            "D" => Some(period.abs() * 1000 * 60 * 60 * 24),
-            _ => None,
+    fn millis(duration: String) -> Option<i64> {
+        match Regex::new(r"(?i)^(\d+)([MHD])$") {
+            Ok(re) => {
+                if let Some(caps) = re.captures(&duration) {
+                    let number = caps.get(1)?.as_str().parse::<i64>();
+                    let unit = caps.get(2)?.as_str();
+                    match number {
+                        Ok(num) => {
+                            match unit {
+                                "M" => Some(num * 60),
+                                "H" => Some(num * 60 * 60),
+                                "D" => Some(num * 60 * 60 * 24),
+                                "m" => Some(num * 60),
+                                "h" => Some(num * 60 * 60),
+                                "d" => Some(num * 60 * 60 * 24),
+                                _ => None,
+                            }
+                        }
+                        Err(_) => None,
+                    }
+                  
+                    } else {
+                        None
+                    }
+                }
+            Err(_) => None,
         }
     }
 }
@@ -96,7 +161,7 @@ impl EventHandler for ClientHandler {
                 request_type: DBRequestType::GiveContext,
                 command: None,
                 context: Some(ctx.clone()),
-                guildlog: None,
+                threadlog: None,
             })
             .await
         {
@@ -105,16 +170,43 @@ impl EventHandler for ClientHandler {
         for guild in guilds {
             match ClientHandler::permission_check(&ctx, guild).await {
                 Ok(true) => {
+                    match guild.channels(&ctx.http).await {
+                        Ok(channels) => {
+                            let guildchs = channels.values().collect::<Vec<_>>();
+                            match ClientHandler::role_add(&ctx, guild, &guildchs, Permissions::all(), "Muted").await {
+                                Ok(_) => (),
+                                Err(e) => {
+                                    eprintln!("Error applying Muted role to Guild {}: {}", guild, e);
+                                    continue;
+                                }
+                            }        
+                        },
+                        Err(e) => {
+                            eprintln!("Failed to fetch channels for guild {}: {}", guild, e);
+                            continue;
+                        }
+                    };
                     println!("Bot has permissions in connected guild {}", guild);
-                    match ClientHandler::create_log(&ctx, guild).await {
+
+                    let logchannel = match ClientHandler::create_log(&ctx, guild).await {
                         Ok(log) => {
+                           log
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to create or get log channel for guild {}: {}", guild, e);
+                            continue;
+                        }
+                    };
+
+                    match ClientHandler::create_punishment_notifer(&ctx, guild).await {
+                        Ok(notifier) => {
                             if let Err(e) = &self
                                 .sender
                                 .send(DBRequest {
                                     request_type: DBRequestType::Build,
                                     command: None,
                                     context: None,
-                                    guildlog: Some((log.id, guild)),
+                                    threadlog: Some((guild, (logchannel.id, notifier.id))),
                                 })
                                 .await
                             {
@@ -137,7 +229,7 @@ impl EventHandler for ClientHandler {
                             println!("Initialized modbot for guild {}", guild);
                         }
                         Err(e) => {
-                            eprintln!("Failed to create or get log channel for guild {}: {}", guild, e);
+                            eprintln!("Failed to create or get punishment notification channel for guild {}: {}", guild, e);
                             continue;
                         }
                     }
@@ -155,6 +247,18 @@ impl EventHandler for ClientHandler {
                 }
             }
         }
+    }
+
+    async fn channel_create(&self, ctx: Context, channel: GuildChannel) {
+        let mut channels = Vec::new();
+        channels.push(&channel);
+        match ClientHandler::role_add(&ctx, channel.guild_id, &channels, Permissions::all(), "Muted").await {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Error applying Muted role to Guild {}: {}", channel.guild_id, e);
+            }
+        }
+        
     }
 
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
@@ -210,11 +314,8 @@ impl EventHandler for ClientHandler {
                                                         }
                                                         opts.user = Some((**u).clone());
                                                     }
-                                                    ("duration", ResolvedValue::Integer(d)) => {
-                                                        opts.duration = Some(*d);
-                                                    }
-                                                    ("units", ResolvedValue::String(u)) => {
-                                                        opts.units = Some((*u).to_string());
+                                                    ("duration", ResolvedValue::String(d)) => {
+                                                        opts.duration = Some((*d).to_string());
                                                     }
                                                     ("reason", ResolvedValue::String(r)) => {
                                                         opts.reason = Some((*r).to_string());
@@ -235,11 +336,8 @@ impl EventHandler for ClientHandler {
                                                         }
                                                         opts.user = Some((**u).clone());
                                                     }
-                                                    ("duration", ResolvedValue::Integer(d)) => {
-                                                        opts.duration = Some(*d);
-                                                    }
-                                                    ("units", ResolvedValue::String(u)) => {
-                                                        opts.units = Some((*u).to_string());
+                                                        ("duration", ResolvedValue::String(d)) => {
+                                                        opts.duration = Some((*d).to_string());
                                                     }
                                                     ("reason", ResolvedValue::String(r)) => {
                                                         opts.reason = Some((*r).to_string());
@@ -260,11 +358,8 @@ impl EventHandler for ClientHandler {
                                                         }
                                                         opts.user = Some((**u).clone());
                                                     }
-                                                    ("duration", ResolvedValue::Integer(d)) => {
-                                                        opts.duration = Some(*d);
-                                                    }
-                                                    ("units", ResolvedValue::String(u)) => {
-                                                        opts.units = Some((*u).to_string());
+                                                    ("duration", ResolvedValue::String(d)) => {
+                                                        opts.duration = Some((*d).to_string());
                                                     }
                                                     ("reason", ResolvedValue::String(r)) => {
                                                         opts.reason = Some((*r).to_string());
@@ -285,11 +380,8 @@ impl EventHandler for ClientHandler {
                                                         }
                                                         opts.user = Some((**u).clone());
                                                     }
-                                                    ("duration", ResolvedValue::Integer(d)) => {
-                                                        opts.duration = Some(*d);
-                                                    }
-                                                    ("units", ResolvedValue::String(u)) => {
-                                                        opts.units = Some((*u).to_string());
+                                                    ("duration", ResolvedValue::String(d)) => {
+                                                        opts.duration = Some((*d).to_string());
                                                     }
                                                     ("reason", ResolvedValue::String(r)) => {
                                                         opts.reason = Some((*r).to_string());
@@ -343,11 +435,8 @@ impl EventHandler for ClientHandler {
                                     ("id", ResolvedValue::String(i)) => {
                                         opts.id = Some((*i).to_string());
                                     }
-                                    ("duration", ResolvedValue::Integer(d)) => {
-                                        opts.duration = Some(*d);
-                                    }
-                                    ("units", ResolvedValue::String(u)) => {
-                                        opts.units = Some((*u).to_string());
+                                    ("duration", ResolvedValue::String(d)) => {
+                                        opts.duration = Some((*d).to_string());
                                     }
                                     ("reason", ResolvedValue::String(r)) => {
                                         opts.reason = Some((*r).to_string());
@@ -381,37 +470,9 @@ impl EventHandler for ClientHandler {
                         }
                     };
 
-                    let length = match (opts.duration, opts.units) {
-                        (Some(duration), Some(units)) => {
-                            ClientHandler::millis(&units, duration)
-                        }
-                        (Some(_), None) => {
-                            command
-                                .create_response(
-                                    &ctx.http,
-                                    CreateInteractionResponse::Message(
-                                        CreateInteractionResponseMessage::new()
-                                            .content("Units provided without duration")
-                                            .ephemeral(true),
-                                    ),
-                                )
-                                .await
-                                .expect("Failed to send response");
-                            return;
-                        }
-                        (None, Some(_)) => {
-                            command
-                                .create_response(
-                                    &ctx.http,
-                                    CreateInteractionResponse::Message(
-                                        CreateInteractionResponseMessage::new()
-                                            .content("Duration provided without units")
-                                            .ephemeral(true),
-                                    ),
-                                )
-                                .await
-                                .expect("Failed to send response");
-                            return;
+                    let length = match (opts.duration) {
+                        (Some(duration)) => {
+                            ClientHandler::millis(duration)
                         }
                         _ => None,
                     };
@@ -432,7 +493,7 @@ impl EventHandler for ClientHandler {
                                             length,
                                         }),
                                         context: Some(ctx),
-                                        guildlog: None,
+                                        threadlog: None,
                                     })
                                     .await
                                     .unwrap_or_else(|e| {
@@ -451,9 +512,10 @@ impl EventHandler for ClientHandler {
                                         invoker,
                                         latest: opts.latest,
                                         id: opts.id,
+                                        silent: false,
                                     }),
                                     context: Some(ctx),
-                                    guildlog: None,
+                                    threadlog: None,
                                 })
                                 .await
                                 .unwrap_or_else(|e| {
@@ -477,7 +539,7 @@ impl EventHandler for ClientHandler {
                                         })
                                     ),
                                     context: Some(ctx),
-                                    guildlog: None,
+                                    threadlog: None,
                                 })
                                 .await
                                 .unwrap_or_else(|e| {
@@ -531,7 +593,7 @@ impl EventHandler for ClientHandler {
                                 })
                             ),
                             context: Some(ctx),
-                            guildlog: None,
+                            threadlog: None,
                         })
                         .await
                         .unwrap_or_else(|e| {

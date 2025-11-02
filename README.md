@@ -20,30 +20,18 @@ The main component (main.rs in the Server folder) is intialization. Serenity uti
     ├── add (SubCommandGroup)
         ├── timeout (SubCommand)
             ├── user (User | REQUIRED)
-            ├── duration (Integer | REQUIRED)
-            ├── units (String Choice | REQUIRED)
-                ├── "minute(s)"
-                ├── "hour(s)"
-                ├── "day(s)"
+            ├── duration (String | REQUIRED)
             ├── reason (String)
         ├── warn (SubCommand)
             ├── user (User | REQUIRED)
             ├── reason (String)
         ├── mute (SubCommand)
             ├── user (User | REQUIRED)
-            ├── duration (Integer)
-            ├── units (String Choice)
-                ├── "minute(s)"
-                ├── "hour(s)"
-                ├── "day(s)"
+            ├── duration (String)
             ├── reason (String)
         ├── ban (SubCommand)
             ├── user (User | REQUIRED)
-            ├── duration (Integer)
-            ├── units (String Choice)
-                ├── "minute(s)"
-                ├── "hour(s)"
-                ├── "day(s)"
+            ├── duration (String)
             ├── reason (String)
     ├── remove (SubCommand)
         ├── user (User | REQUIRED)
@@ -54,11 +42,7 @@ The main component (main.rs in the Server folder) is intialization. Serenity uti
         ├── id (Integer)
         ├── latest (Boolean)
         ├── reason (String)
-        ├── duration (Integer)
-        ├── units (String Choice)
-            ├── "minutes"
-            ├── "hours"
-            ├── "days"
+        ├── duration (String)
 ├── /setpermission
     ├── role (Role | REQUIRED)
     ├── allow (Boolean | REQUIRED)
@@ -101,10 +85,13 @@ Documents are BSON.
 * Admin only /reverse command that helps reverse past punishments for trial mods (security), also limit ban outside their range. Integrated rate limit for trial mods. (Only consider this if necessary)
 * Optimized checks for roles to avoid unecessary API pings (hopefully the cache does this)
 * Figure out efficient means of adding image evidence to profile punishments without storing the data if possible.
-* Make a case for quarantined status flag (need to use events for that)
-* Establish the Muted role that iterates over chanel and makes sure it cannot see, post, or enter any channel
-* Add cleanup functions that can cleanup user messages like default ban behavior
+* Make a case for quarantined status flag (need to use events for that) This will require reading automod action execution and looking for a guild member update after.
 * Consider extension methods for profiles if they have too much punishments. Possibly an async recursion that occurs after the first post. Might need a means to easily clean thread and add this information.
+* Cleanup methods like dmd for ban but for all other punishment types.
+* Have a check for rejoins and keeping mute and timeouts on users. Memory array for quickchecking to avoid database searches.
+* Need intialization in active temps on bot intialization efficiently.
+* Need protections for user rejoins to test against active temps.
+* Setup notifer channel with private threads for each user to notify them in server of their punishment status.
 
 
 ### Depedencies

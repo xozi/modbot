@@ -1,11 +1,12 @@
 use serenity::{
-    all::{CreateEmbed, EditMessage,},
-    builder::{GetMessages},
-    model::{channel::*, id::GuildId},
+    all::{CreateEmbed, CreateForumPost, CreateMessage, EditMessage},
+    builder::GetMessages,
+    model::id::ChannelId,
     prelude::*,
 };
-use async_recursion::async_recursion;
 
+/*
+use async_recursion::async_recursion;
 //Rate limit the async recursion with a value.
 #[async_recursion]
 pub async fn recarch_thread_search<'a>(log_channel: &'a GuildChannel, ctx: &'a Context, threadname: String, mut timestamp: Option<u64>) -> Result<Option<GuildChannel>, SerenityError> {
@@ -38,9 +39,10 @@ pub async fn active_thread_search(guild: &GuildId,ctx: &Context,threadname: Stri
         .into_iter()
         .find(|t| t.name == threadname))
 }
+*/
 
-pub async fn edit_thread_post(ctx: &Context,thread: &GuildChannel,edit: CreateEmbed) -> Result<(), SerenityError> {
-    //Finds the first message in the thread and edit it with new embed.
+pub async fn update_thread_post(ctx: &Context,thread: &ChannelId,edit: CreateEmbed) -> Result<(), SerenityError> {
+    //Finds the first message in the thread and edit it with new embed. Include additional adding if it exceeds 5 punishments.
     let messages = thread.messages(&ctx.http, GetMessages::new().limit(1)).await?;
     if let Some(mut message) = messages.into_iter().next() {
         message
@@ -48,4 +50,12 @@ pub async fn edit_thread_post(ctx: &Context,thread: &GuildChannel,edit: CreateEm
             .embed(edit)).await?;
     }
     Ok(())
+}
+
+pub async fn create_user_profile(log: &ChannelId,ctx: &Context, embed: CreateEmbed, userid: i64) -> Result<ChannelId, SerenityError> {
+    Ok(log.create_forum_post(&ctx.http,CreateForumPost::new(userid.to_string(),
+    CreateMessage::new()
+                .embed(embed)
+        )
+    ).await?.id)
 }

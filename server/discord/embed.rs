@@ -3,9 +3,11 @@ use serenity::{
     model::{ Timestamp, guild::PartialMember, user::User}, 
     utils::{FormattedTimestamp, FormattedTimestampStyle}
 };
-use crate::{db::Profile, discord::commands::PunishmentType};
+use crate::{db::PunishmentRecord, discord::commands::PunishmentType};
+use std::collections::BTreeMap;
+
 //Add a active flag to Profile to allow for fetches to go for the last punishment and set active punishment. Use temporary events to disable this flag if timed.
-pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), profile: Profile) -> CreateEmbed {
+pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), punishments: &BTreeMap<String,PunishmentRecord>) -> CreateEmbed {
     let mut footstring = format!("Moderator: {}", invodata.name);   
     let mut embed = CreateEmbed::default()
         .title(format!("User Profile"))
@@ -18,18 +20,15 @@ pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), pr
     embed = match &data.1 {
         Some(member) => {
             footstring.push_str("\nMember: ✅");     
-            let embed = embed.fields(vec![
-                ("Join Date", FormattedTimestamp::new(member.joined_at.unwrap_or_default(), Some(FormattedTimestampStyle::ShortDateTime)).to_string(), true),
-                ("Roles", if member.roles.len() > 0 {
-                    member.roles
+            embed = embed.field("Join Date", FormattedTimestamp::new(member.joined_at.unwrap_or_default(), Some(FormattedTimestampStyle::ShortDateTime)).to_string(), true);
+            if member.roles.len() > 0 {
+                embed = embed.field("Roles", member.roles
                         .iter()
                         .map(|r| format!("<@&{}>", r))
                         .collect::<Vec<String>>()
-                        .join(", ")
-                } else {
-                    "No Roles".to_string()
-                }, false),
-            ]);
+                        .join(", "), 
+                        false);
+            } 
             embed
         },
         None => {
@@ -39,42 +38,42 @@ pub async fn profembed(invodata: &User, data: &(User, Option<PartialMember>), pr
     };
 
     
-    embed = if profile.punishments.len() > 0 {
+    embed = if punishments.len() > 0 {
         let mut detailnames = vec![]; 
         let mut punishdetails = vec![];
-        for (pid, record) in profile.punishments.iter() {
-            if let (Ok(start), Ok(end)) = (Timestamp::from_unix_timestamp(record.punished_for.0),Timestamp::from_unix_timestamp(record.punished_for.1)) {
-                
-                if end == Timestamp::default() || end > Timestamp::now() {
-                    embed = match record.punishment {
-                        PunishmentType::Ban => {
-                            footstring.push_str("  -  Banned: ✅");
-                            embed.color(0xFF0000) //Red
-                        }
-                        PunishmentType::Mute => {
-                            footstring.push_str("  -  Muted: ✅");
-                            embed.color(0xFF9900) //Orange
-                        }
-                        PunishmentType::Timeout => {
-                            footstring.push_str("  -  Timeout: ✅");
-                            embed.color(0xFFE600) //Yellow
-                        },
-                        _ => {embed}
-                    };
-                detailnames.push(format!("{:?} (ID {})", record.punishment, pid));
-                punishdetails.push(format!("\n **Reason:** {}\n**Period:** {} - {}\n**Moderator:** <@{}>\n\n",
-                    record.reason.clone().unwrap_or("No reason provided.".to_string()),
-                    FormattedTimestamp::new(start, Some(FormattedTimestampStyle::ShortDateTime)).to_string(),
-                    if end == Timestamp::default() {
-                        "Permanent".to_string()
-                    } else {
-                        FormattedTimestamp::new(end, Some(FormattedTimestampStyle::ShortDateTime)).to_string()
-                    },
-                        record.moderator,
-                ));
+        for (pid, record) in punishments.iter() {
+            detailnames.push(format!("{:?} (ID {})", record.punishment, pid));
+
+            if let Some(reason) = &record.reason {
+                punishdetails.push(format!("\n**Reason:** {}", reason));
             }
-            } else {
-                eprintln!("Failed to parse punishment timestamps");
+
+            punishdetails.push(format!("\n**Period:** {} - {}\n**Moderator:** <@{}>\n\n",
+                FormattedTimestamp::new(record.punished_for.0, Some(FormattedTimestampStyle::ShortDateTime)).to_string(),
+                if record.punished_for.1 == Timestamp::default() {
+                    "Permanent".to_string()
+                } else {
+                    FormattedTimestamp::new(record.punished_for.1, Some(FormattedTimestampStyle::ShortDateTime)).to_string()
+                },
+                record.moderator,
+            ));
+
+            if record.punished_for.1 == Timestamp::default() || record.punished_for.1 > Timestamp::now() {
+                embed = match record.punishment {
+                    PunishmentType::Ban => {
+                        footstring.push_str("  -  Banned: ✅");
+                        embed.color(0xFF0000) //Red
+                    }
+                    PunishmentType::Mute => {
+                        footstring.push_str("  -  Muted: ✅");
+                        embed.color(0xFF9900) //Orange
+                    }
+                    PunishmentType::Timeout => {
+                        footstring.push_str("  -  Timeout: ✅");
+                        embed.color(0xFFE600) //Yellow
+                    },
+                    _ => {embed}
+                };
             }
         }
         for (name, detail) in detailnames.iter().rev().zip(punishdetails.iter().rev()) {

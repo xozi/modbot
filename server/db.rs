@@ -1,29 +1,33 @@
-use crate::discord::{commands::PunishmentType, embed::profembed};
-use polodb_core::{CollectionT, Database, IndexModel, IndexOptions, bson::doc, options};
+use crate::discord::{commands::PunishmentType, embed::profembed, punishment::*, thread::*};
+use polodb_core::{CollectionT, Database, IndexModel, bson::doc};
 use serde::{Deserialize, Serialize};
 use serenity::{
-    all::{CommandDataOption, CommandInteraction, PartialMember, ResolvedValue, Role, User},
+    all::{CommandInteraction, PartialMember, Role, User},
     builder::{CreateInteractionResponse, CreateInteractionResponseMessage},
-    model::{channel::GuildChannel, id::{ChannelId, GuildId}, user, Timestamp},
+    model::{Timestamp, id::{ChannelId, GuildId}},     prelude::*,
 };
-use std::{collections::{BTreeMap, BTreeSet}, time::UNIX_EPOCH};
-use tokio::sync::mpsc::Receiver;
+use std::collections::BTreeMap;
+use tokio::{task::JoinHandle, time::{sleep, Duration}, sync::mpsc::{Sender,Receiver}};
 
 
 pub struct DBHandler {
     database: BTreeMap<GuildId, GuildDB>,
-    guildlog: BTreeMap<GuildId, ChannelId>,
+    threadlog: BTreeMap<GuildId, (ChannelId, ChannelId)>, //Log Channel, Notifier Channel
     context: Option<serenity::prelude::Context>,
     receiver: Receiver<DBRequest>,
+    sender: Sender<DBRequest>,
+    active_temps: BTreeMap<i64, (GuildId, Temporary, JoinHandle<()>)>, //UserID, (GuildID, Temporary)
 }
 
 impl DBHandler {
-    pub fn new(receiver: Receiver<DBRequest>) -> Self {
+    pub fn new(receiver: Receiver<DBRequest>, sender: Sender<DBRequest>) -> Self {
         DBHandler {
             database: BTreeMap::new(),
-            guildlog: BTreeMap::new(),
+            threadlog: BTreeMap::new(),
             context: None,
             receiver,
+            sender,
+            active_temps: BTreeMap::new(),
         }
     }
     pub async fn process_requests(&mut self) {
@@ -35,8 +39,8 @@ impl DBHandler {
                     }
                 }
                 DBRequestType::Build => {
-                    if let Some((channel, guild)) = request.guildlog {
-                        self.guildlog.insert(guild, channel);
+                    if let Some((guild, logs)) = request.threadlog {
+                        self.threadlog.insert(guild, logs);
 
                         if let Err(e) = std::fs::create_dir_all("server/databases") {
                             eprintln!("Failed to create database folder: {}", e);
@@ -76,7 +80,7 @@ impl DBHandler {
                                         guild, e
                                     );
                                 }
-
+                                
                                 self.database.insert(
                                     guild,
                                     GuildDB {
@@ -116,7 +120,7 @@ impl DBHandler {
                                                         profembed(
                                                             &invoker,
                                                             &target,
-                                                            userprofile,
+                                                            &userprofile.punishments,
                                                         )
                                                         .await,
                                                     )
@@ -143,31 +147,61 @@ impl DBHandler {
                                                 ptype,
                                                 reason,
                                                 length, .. } => {  
-                                if let Some(mut userprofile) = self
-                                    .get_profile(target.0.id.get() as i64, &targetguild)
-                                    .await
-                                {
-                                    let end = Timestamp::now().unix_timestamp() + length.unwrap_or(-Timestamp::now().unix_timestamp());
-                                        userprofile.add_punishment(PunishmentRecord {
-                                            punishment: ptype.clone(),
-                                            reason: reason.clone(),
-                                            punished_for: (Timestamp::now().unix_timestamp(), end),
-                                            moderator: invoker.id.get() as i64,
-                                        });
-                                    self.update_profile(&userprofile, &targetguild).await;
-                                    command
-                                        .create_response(
-                                            &ctx.http,
-                                            CreateInteractionResponse::Message(
-                                                CreateInteractionResponseMessage::new()
-                                                    .content(format!("Added {:?} punishment to <@{}>.", ptype, target.0.id))
-                                                    .ephemeral(true),
-                                            ),
-                                        )
-                                        .await
-                                        .expect("Failed to send response");
+                                let end = Timestamp::from_unix_timestamp(Timestamp::now().unix_timestamp() + length.unwrap_or(-Timestamp::now().unix_timestamp()));
+                                let idkey = target.0.id.get() as i64;
+                                match end {
+                                    Ok(end) => {
+                                        if let Some(punishment) = self.process_punishment( idkey,  
+                                            &invoker,
+                                            &target,
+                                            ptype.clone(),
+                                            reason,
+                                            (Timestamp::now(), end),
+                                            &targetguild,
+                                            &ctx).await {
+                                                 apply_punishment(&ctx, targetguild, &punishment, &target.0)
+                                                    .await
+                                                    .expect("Failed to apply punishment");
+
+                                                command
+                                                    .create_response(
+                                                        &ctx.http,
+                                                        CreateInteractionResponse::Message(
+                                                            CreateInteractionResponseMessage::new()
+                                                                .content(format!("Added {:?} punishment to <@{}>.", ptype, idkey))
+                                                                .ephemeral(true),
+                                                        ),
+                                                    )
+                                                    .await
+                                                    .expect("Failed to send response");
+
+                                                if length.is_some() {
+                                                    self.add_temporary(command, idkey, target, targetguild, invoker, Temporary {
+                                                        user_id: idkey,
+                                                        punishment,
+                                                        negdur: !Timestamp::now().unix_timestamp(),
+                                                    }).await;
+                                                }                       
+                                            }
+                                            println!("Added punishment {:?} to user {}.", ptype, idkey);    
+                                    },
+                                    Err(e) => {
+                                        command
+                                            .create_response(
+                                                &ctx.http,
+                                                CreateInteractionResponse::Message(
+                                                    CreateInteractionResponseMessage::new()
+                                                        .content(format!("Invalid timestamp conversion: {}", e))
+                                                        .ephemeral(true),
+                                                ),
+                                            )
+                                            .await
+                                            .expect("Failed to send response");
+                                        continue;
                                     }
                                 }
+                                
+                            }
                             Command::PunishEdit {command, 
                                                 target, 
                                                 targetguild,
@@ -176,23 +210,48 @@ impl DBHandler {
                                                 latest,
                                                 length,
                                                 reason, .. } => {  
+                                let idkey = target.0.id.get() as i64;
                                 if let Some(mut userprofile) = self
-                                    .get_profile(target.0.id.get() as i64, &targetguild)
+                                    .get_profile(idkey, &targetguild)
                                     .await
                                 {
-                                    userprofile.edit_punishment(id, latest, length, reason);
-                                    self.update_profile(&userprofile, &targetguild).await;
+                                    self.update_profile(&userprofile, &targetguild, &target, &invoker, &ctx).await;
+
                                     command
-                                        .create_response(
-                                            &ctx.http,
-                                            CreateInteractionResponse::Message(
-                                                CreateInteractionResponseMessage::new()
-                                                    .content(format!("Edited punishment for <@{}>.", target.0.id))
-                                                    .ephemeral(true),
-                                            ),
-                                        )
-                                        .await
-                                        .expect("Failed to send response");
+                                            .create_response(
+                                                &ctx.http,
+                                                CreateInteractionResponse::Message(
+                                                    CreateInteractionResponseMessage::new()
+                                                        .content(format!("Edited punishment for <@{}>.", idkey))
+                                                        .ephemeral(true),
+                                                ),
+                                            )
+                                            .await
+                                            .expect("Failed to send response");
+
+                                    if self.active_temps.contains_key(&idkey) && length.is_some() {
+                                        if let Some((_,record,_)) = self.active_temps.get_mut(&idkey) {
+                                            userprofile.edit_punishment(id, latest, length, reason, Some(record));
+                                            let record_clone = record.clone();
+                                            self.remove_temporary(idkey, &targetguild).await;
+                                            self.add_temporary(command,idkey, target, targetguild, invoker, record_clone, ).await;
+                                        }
+                                    } else {
+                                        userprofile.edit_punishment(id, latest, length, reason, None);
+                                    }
+                                    
+                                } else {
+                                        command
+                                            .create_response(
+                                                &ctx.http,
+                                                CreateInteractionResponse::Message(
+                                                    CreateInteractionResponseMessage::new()
+                                                        .content(format!("<@{}> lacks any punishment history.", idkey))
+                                                        .ephemeral(true),
+                                                ),
+                                            )
+                                            .await
+                                            .expect("Failed to send response");
                                 }
                             }
                             Command::PunishRemove {command, 
@@ -200,33 +259,55 @@ impl DBHandler {
                                                     targetguild,
                                                     invoker,
                                                     id,
-                                                    latest, .. } => {  
+                                                    latest,
+                                                    silent,  .. } => {  
+                                let idkey = target.0.id.get() as i64;
                                 if let Some(mut userprofile) = self
-                                    .get_profile(target.0.id.get() as i64, &targetguild)
+                                    .get_profile(idkey, &targetguild)
                                     .await
                                 {
-                                    userprofile.remove_punishment(id, latest);
-                                    self.update_profile(&userprofile, &targetguild).await;
-                                    command.
-                                        create_response(
-                                            &ctx.http,
-                                            CreateInteractionResponse::Message(
-                                                CreateInteractionResponseMessage::new()
-                                                    .content(format!("Removed punishment for <@{}>.", target.0.id))
-                                                    .ephemeral(true),
-                                            ),
-                                        )
-                                        .await
-                                        .expect("Failed to send response");
+                                    if self.active_temps.contains_key(&idkey) {
+                                        self.remove_temporary(idkey, &targetguild).await;
+                                    }
+
+                                    if let Some(removed) = userprofile.remove_punishment(id, latest) {
+                                        remove_punishment(&ctx, targetguild, &removed, &target.0)
+                                            .await
+                                            .expect("Failed to remove punishment");
+                                    }
+
+                                    self.update_profile(&userprofile, &targetguild, &target, &invoker, &ctx).await;
+                                    if !silent {
+                                        command.
+                                            create_response(
+                                                &ctx.http,
+                                                CreateInteractionResponse::Message(
+                                                    CreateInteractionResponseMessage::new()
+                                                        .content(format!("Removed punishment for <@{}>.", target.0.id))
+                                                        .ephemeral(true),
+                                                ),
+                                            )
+                                            .await
+                                            .expect("Failed to send response");                                   
+                                    }
+                                } else {
+                                        command
+                                            .create_response(
+                                                &ctx.http,
+                                                CreateInteractionResponse::Message(
+                                                    CreateInteractionResponseMessage::new()
+                                                        .content(format!("<@{}> lacks any punishment history.", target.0.id))
+                                                        .ephemeral(true),
+                                                ),
+                                            )
+                                            .await
+                                            .expect("Failed to send response");
                                 }
                             }
                             _ => { 
                             }
                         }
                     }
-                }
-                DBRequestType::TemporaryComplete => {
-                    //
                 }
                 DBRequestType::CommandPermissionUpdate => {
                     if let (Some(cmd), Some(ctx)) = (request.command, request.context) {
@@ -255,11 +336,7 @@ impl DBHandler {
             match guilddb.profilecol.find_one(doc! { "user_id": userid}) {
                 Ok(Some(profile)) => return Some(profile),
                 Ok(None) => {
-                    if let Err(e) = guilddb.profilecol.insert_one(Profile::new(userid)) {
-                        eprintln!("Error creating new profile in Profile Query: {}", e);
-                        return None;
-                    }
-                    return Some(Profile::new(userid));
+                   return None;
                 }
                 Err(e) => {
                     eprintln!("Error retrieving profile in Profile Query: {}", e);
@@ -271,8 +348,64 @@ impl DBHandler {
         }
         return None;
     }
+
+    async fn process_punishment(&self, userid: i64, invoker: &User, target: &(User, Option<PartialMember>), ptype: PunishmentType, reason: Option<String>, punishtime: (Timestamp, Timestamp), guildid: &GuildId, ctx: &Context) -> Option<PunishmentRecord> {
+        if let Some(guilddb) = self.database.get(guildid) {
+            match guilddb.profilecol.find_one(doc! { "user_id": userid}) {
+                Ok(Some(mut profile)) =>  {
+                    let (profile, punishment) = profile.add_punishment(ptype,reason,punishtime, invoker.id.get() as i64);
+                    self.update_profile(&profile, guildid, target, invoker, ctx).await;
+                    return Some(punishment);
+                },
+                Ok(None) => {
+                    if let Some((log,_)) = self.threadlog.get(guildid) {
+                        let id = "1".to_string();
+                        let punishment = PunishmentRecord {
+                            id: id.clone(),
+                            punishment: ptype,
+                            reason,
+                            punished_for: punishtime,
+                            moderator: invoker.id.get() as i64,
+                        };
+
+                        let mut newpunishment = BTreeMap::new();
+                        newpunishment.insert(id, punishment.clone());
+                        let embed = profembed(invoker, target, &newpunishment).await;
+                        let userthread = match create_user_profile(log, ctx, embed, userid).await {
+                            Ok(channelid) => channelid,
+                            Err(e) => {
+                                eprintln!("Error creating user profile thread in Profile Query: {}", e);
+                                return None;
+                            }
+                        };
+                        if let Err(e) = guilddb.profilecol.insert_one(Profile::new(userid, userthread, newpunishment)) {
+                            eprintln!("Error creating new profile in Database: {}", e);
+                            return None;
+                        }
+                        return Some(punishment);
+                    } else {
+                        return None;
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error retrieving profile in Profile Query: {}", e);
+                    return None;
+                }
+            };
+        } else {
+            eprintln!("No database found for queried guild in Profile Query");
+            return None;
+        }
+
+    }
     
-    async fn update_profile(&self, profile: &Profile, guildid: &GuildId) {
+    async fn update_profile(&self, profile: &Profile, guildid: &GuildId, target: &(User, Option<PartialMember>), invoker: &User, ctx: &Context) {
+        update_thread_post(ctx, 
+            &profile.user_thread,
+                profembed(invoker, target, &profile.punishments).await
+            )
+        .await
+        .expect("Failed to update profile thread embed");
         if let Some(guilddb) = self.database.get(guildid) {
             if let Ok(bson_profile) = polodb_core::bson::to_bson(profile) {
                 guilddb.profilecol.update_one(doc! { "user_id": profile.user_id }, doc! { "$set": bson_profile })
@@ -282,6 +415,62 @@ impl DBHandler {
             }
         } else {
             eprintln!("No database found for queried guild in Profile Update");
+        }
+    }
+
+    async fn add_temporary(&mut self, command: CommandInteraction, userid: i64, target: (User, Option<PartialMember>), targetguild: GuildId, invoker: User, record: Temporary) {
+        //Temporary task thread generation
+        let handle_sender = self.sender.clone();
+        let handle_ctx = self.context.clone();
+        let handle_command = Command::PunishRemove { 
+            command,
+            targetguild,
+            target,
+            invoker,
+            latest: None,
+            id: Some(record.punishment.id.clone()),
+            silent: true,
+        };
+
+        let handle = tokio::spawn(async move {
+            let sleeptime = Duration::from_secs((record.punishment.punished_for.1.unix_timestamp() - record.punishment.punished_for.0.unix_timestamp()) as u64);             
+            sleep(sleeptime).await;
+            
+            if let Err(e) = handle_sender.send(DBRequest {
+                request_type: DBRequestType::Punishment,
+                command: Some(handle_command),
+                context: handle_ctx,
+                threadlog: None,
+            }).await {
+                eprintln!("Failed to send TemporaryComplete request: {}", e);
+            }
+            println!("Temporary punishment for user {} has completed.", userid);
+        });
+
+        self.active_temps.insert(userid, (targetguild, record.clone(), handle));
+
+        if let Some(guilddb) = self.database.get(&targetguild) {
+            if let Err(e) = guilddb.tempcol.insert_one(record) {
+                eprintln!("Error creating new temporary in Temporary Add: {}", e);
+            }
+        } else {
+            eprintln!("No database found for queried guild in Profile Update");
+        }
+    }
+
+    async fn remove_temporary(&mut self, userid: i64, guildid: &GuildId) -> Option<String> {
+        if let Some((_, temp, handle)) = self.active_temps.remove(&userid) {
+            handle.abort();
+            if let Some(guilddb) = self.database.get(guildid) {
+                if let Err(e) = guilddb.tempcol.delete_one(doc! { "user_id": userid }) {
+                    eprintln!("Error removing temporary in Temporary Remove: {}", e);
+                }
+            } else {
+                eprintln!("No database found for queried guild in Profile Update");
+            }
+            Some(temp.punishment.id)
+        } else {
+            None
         }
     }
 
@@ -313,7 +502,6 @@ pub enum DBRequestType {
     Build,
     FetchProfile,
     Punishment,
-    TemporaryComplete,
     CommandPermissionUpdate,
 }
 
@@ -328,7 +516,7 @@ pub struct DBRequest {
     pub request_type: DBRequestType,
     pub command: Option<Command>,
     pub context: Option<serenity::prelude::Context>,
-    pub guildlog: Option<(ChannelId, GuildId)>,
+    pub threadlog: Option<(GuildId, (ChannelId, ChannelId))>,
 }
 
 pub enum Command {
@@ -349,6 +537,7 @@ pub enum Command {
         invoker: User,
         latest: Option<bool>,
         id: Option<String>,
+        silent: bool,
     },
 
     PunishAdd {
@@ -374,7 +563,7 @@ pub enum Command {
         targetguild: GuildId,
         target: (User, Option<PartialMember>),
         invoker: User,
-    }
+    },
 }
 
 
@@ -404,52 +593,74 @@ Maybe consider keeping struct elements of the embed for easy recreation?
 // We will need to convert UserId to i64 for BSON queries
 pub struct Profile {
     user_id: i64,
-    punishment_thread: Option<ChannelId>,
+    user_thread: ChannelId,
     pub punishments: BTreeMap<String, PunishmentRecord>, //id, Record
     negdur: i64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PunishmentRecord {
+    pub id: String,
     pub punishment: PunishmentType,
     pub reason: Option<String>,
-    pub punished_for: (i64, i64), //Start, End
+    pub punished_for: (Timestamp, Timestamp), //Start, End
     pub moderator: i64,
 }
 
 impl Profile {
-    pub fn new(user_id: i64) -> Self {
+    pub fn new(user_id: i64, user_thread: ChannelId, punishments: BTreeMap<String, PunishmentRecord>) -> Self {
         Profile {
             user_id,
-            punishment_thread: None,
-            punishments: BTreeMap::new(),
+            user_thread,
+            punishments,
             negdur: !Timestamp::now().unix_timestamp(),
         }
     }
 
-    pub fn add_punishment(&mut self, record: PunishmentRecord) {
+    pub fn add_punishment(&mut self, punishment: PunishmentType, reason: Option<String>, punished_for:(Timestamp, Timestamp), moderator: i64) -> (&mut Profile, PunishmentRecord) {
+        self.negdur =!Timestamp::now().unix_timestamp();
         let id = match self.punishments.keys().last() {
             Some(last_id) => last_id.parse::<u16>().unwrap_or(0) + 1,
             None => 1,
+        }.to_string();
+        let record = PunishmentRecord {
+            id: id.clone(),
+            punishment,
+            reason,
+            punished_for,
+            moderator,
         };
-        self.punishments.insert(id.to_string(), record);
+        self.punishments.insert(id, record.clone());
+        (self, record)
     }
 
-    pub fn remove_punishment(&mut self, id: Option<String>, latest: Option<bool>) {
+    pub fn remove_punishment(&mut self, id: Option<String>, latest: Option<bool>) -> Option<PunishmentRecord> {
+        self.negdur =!Timestamp::now().unix_timestamp();
         match (id, latest) {
             (Some(pid), _) => {
-                self.punishments.remove(&pid);
+                if let Some(record) = self.punishments.remove(&pid) {
+                    return Some(record);
+                } else {
+                    return None;
+                }
             }
             (None, Some(true)) => {
                 if let Some(last_id) = self.punishments.keys().last().cloned() {
-                    self.punishments.remove(&last_id);
-                }
+                    if let Some(record) = self.punishments.remove(&last_id) {
+                        return Some(record);
+                    } else {
+                        return None;
+                    }
+                } else {
+                    return None;
+                }    
             }
-            _ => {}
+            _ => { return None;}
         }
     }
 
-    pub fn edit_punishment(&mut self, id: Option<String>, latest: Option<bool>, length: Option<i64>, reason: Option<String>) {
+    pub fn edit_punishment(&mut self, id: Option<String>, latest: Option<bool>, length: Option<i64>, reason: Option<String>, temp_record: Option<&mut Temporary >) {
+         self.negdur =!Timestamp::now().unix_timestamp();
          match (id, latest) {
             (Some(pid), _) => {
                 if let Some(record) = self.punishments.get_mut(&pid) {
@@ -457,8 +668,12 @@ impl Profile {
                         record.reason = Some(reason);
                     }
                     if let Some(length) = length {
-                        let start = record.punished_for.0;
-                        record.punished_for.1 = start + length;
+                        let start = record.punished_for.0.unix_timestamp();
+                        if let Ok(end) = Timestamp::from_unix_timestamp(start + length) {
+                            record.punished_for.1 = end;
+                        } else {
+                            eprintln!("Error converting timestamp in Edit Punishment");
+                        }
                     }
                 }
             }
@@ -468,8 +683,16 @@ impl Profile {
                         record.reason = Some(reason);
                     }
                     if let Some(length) = length {
-                        let start = record.punished_for.0;
-                        record.punished_for.1 = start + length;
+                        let start = record.punished_for.0.unix_timestamp();
+                        if let Ok(end) = Timestamp::from_unix_timestamp(start + length) {
+                            record.punished_for.1 = end;
+                            if let Some(temp_record) = temp_record {
+                                temp_record.punishment = record.clone();
+                                temp_record.negdur = !end.unix_timestamp();
+                            }
+                        } else {
+                            eprintln!("Error converting timestamp in Edit Punishment");
+                        }
                     }
                 }
             }
@@ -478,23 +701,9 @@ impl Profile {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Temporary {
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Temporary {
     user_id: i64,
     punishment: PunishmentRecord,
     negdur: i64,
 }
-
-impl Temporary {
-    pub fn new(user_id: i64, punishment: PunishmentRecord, duration: i64) -> Self {
-        Temporary {
-            user_id,
-            punishment,
-            negdur: !duration,
-        }
-    }
-}
-
-
-
-
